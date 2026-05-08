@@ -579,7 +579,6 @@ renderNewsLoading();
 refreshMarkets();
 refreshNews();
 refreshBrief();
-refreshTimeline();
 refreshAlerts();
 setInterval(refreshMarkets, REFRESH_MS);
 setInterval(refreshNews, NEWS_REFRESH_MS);

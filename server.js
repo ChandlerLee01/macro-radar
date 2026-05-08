@@ -6,8 +6,10 @@ loadEnvFile();
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
-const BRIEFS_DIR = path.join(ROOT, "briefs");
-const ALERTS_DIR = path.join(ROOT, "alerts");
+const DATA_ROOT =
+  process.env.DATA_DIR || (process.env.VERCEL ? path.join("/tmp", "macro-radar") : ROOT);
+const BRIEFS_DIR = path.join(DATA_ROOT, "briefs");
+const ALERTS_DIR = path.join(DATA_ROOT, "alerts");
 const ALERTS_FILE = path.join(ALERTS_DIR, "history.json");
 const ALERT_STATE_FILE = path.join(ALERTS_DIR, "state.json");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
@@ -46,6 +48,7 @@ const mimeTypes = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
 };
+const staticFiles = new Set(["/index.html", "/styles.css", "/script.js"]);
 
 let cache = null;
 let cacheTime = 0;
@@ -53,6 +56,9 @@ let newsCache = null;
 let newsCacheTime = 0;
 let briefCache = null;
 let briefCacheTime = 0;
+let marketFetchPromise = null;
+let newsFetchPromise = null;
+let openAiDisabled = false;
 
 function loadEnvFile() {
   try {
@@ -81,6 +87,7 @@ function loadEnvFile() {
 }
 
 function parseCsv(csv) {
+  if (!csv || !csv.includes(",")) return [];
   const [header, ...rows] = csv.trim().split(/\r?\n/);
   const keys = header.split(",");
   return rows.map((row) =>
@@ -89,6 +96,21 @@ function parseCsv(csv) {
       return record;
     }, {}),
   );
+}
+
+async function fetchText(url, label, options = {}) {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error(`${label} returned ${response.status}`);
+  return response.text();
+}
+
+async function fetchOptionalText(url, label, options = {}) {
+  try {
+    return await fetchText(url, label, options);
+  } catch (error) {
+    console.error(`${label} unavailable: ${error.message}`);
+    return "";
+  }
 }
 
 function num(value) {
@@ -451,7 +473,12 @@ function parseSummaryJson(text) {
 }
 
 async function generateAiSummary(markets) {
-  if (!process.env.OPENAI_API_KEY) {
+  if (
+    !process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_API_KEY === "your-openai-api-key" ||
+    process.env.OPENAI_API_KEY === "sk-your-api-key" ||
+    openAiDisabled
+  ) {
     return { ...buildSummary(markets), summaryProvider: "local-fallback" };
   }
 
@@ -498,6 +525,9 @@ async function generateAiSummary(markets) {
     });
 
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        openAiDisabled = true;
+      }
       throw new Error(`OpenAI returned ${response.status}`);
     }
 
@@ -527,29 +557,26 @@ async function generateAiSummary(markets) {
 async function fetchMarkets() {
   const now = Date.now();
   if (cache && now - cacheTime < 30_000) return cache;
+  if (marketFetchPromise) return marketFetchPromise;
 
-  const [stooqResponse, treasuryResponse, goldHistory, spxHistory, dxyHistory] = await Promise.all([
-    fetch(STOOQ_URL),
-    fetch(TREASURY_URL),
-    fetch(STOOQ_HISTORY_URLS.gold),
-    fetch(STOOQ_HISTORY_URLS.spx),
-    fetch(STOOQ_HISTORY_URLS.dxy),
-  ]);
-
-  if (!stooqResponse.ok) throw new Error(`Stooq returned ${stooqResponse.status}`);
-  if (!treasuryResponse.ok) throw new Error(`Treasury returned ${treasuryResponse.status}`);
-  if (!goldHistory.ok) throw new Error(`Gold history returned ${goldHistory.status}`);
-  if (!spxHistory.ok) throw new Error(`S&P history returned ${spxHistory.status}`);
-  if (!dxyHistory.ok) throw new Error(`DXY history returned ${dxyHistory.status}`);
+  marketFetchPromise = (async () => {
+    const [stooqText, treasuryText, goldHistoryText, spxHistoryText, dxyHistoryText] =
+      await Promise.all([
+        fetchText(STOOQ_URL, "Stooq"),
+        fetchText(TREASURY_URL, "Treasury"),
+        fetchOptionalText(STOOQ_HISTORY_URLS.gold, "Gold history"),
+        fetchOptionalText(STOOQ_HISTORY_URLS.spx, "S&P history"),
+        fetchOptionalText(STOOQ_HISTORY_URLS.dxy, "DXY history"),
+      ]);
 
   const quotes = Object.fromEntries(
-    parseCsv(await stooqResponse.text()).map((row) => [row.Symbol.toUpperCase(), row]),
+    parseCsv(stooqText).map((row) => [row.Symbol.toUpperCase(), row]),
   );
-  const treasury = parseTreasuryXml(await treasuryResponse.text());
+  const treasury = parseTreasuryXml(treasuryText);
   const history = {
-    gold: parseCsv(await goldHistory.text()),
-    spx: parseCsv(await spxHistory.text()),
-    dxy: parseCsv(await dxyHistory.text()),
+    gold: parseCsv(goldHistoryText),
+    spx: parseCsv(spxHistoryText),
+    dxy: parseCsv(dxyHistoryText),
   };
   const latestYield = treasury.at(-1);
   const previousYield = treasury.at(-2);
@@ -655,50 +682,72 @@ async function fetchMarkets() {
   };
   cacheTime = now;
   return cache;
+  })();
+
+  try {
+    return await marketFetchPromise;
+  } finally {
+    marketFetchPromise = null;
+  }
 }
 
 async function fetchMacroNews() {
   const now = Date.now();
   if (newsCache && now - newsCacheTime < 120_000) return newsCache;
+  if (newsFetchPromise) return newsFetchPromise;
 
-  const feeds = await Promise.all(
-    NEWS_FEEDS.map(async ([topic, url]) => {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "MacroRadar/1.0 (+local-dashboard)",
-        },
-      });
+  newsFetchPromise = (async () => {
+    const feeds = await Promise.allSettled(
+      NEWS_FEEDS.map(async ([topic, url]) =>
+        parseNewsRss(
+          await fetchText(url, `${topic} news RSS`, {
+            headers: {
+              "User-Agent": "MacroRadar/1.0 (+local-dashboard)",
+            },
+          }),
+          topic,
+        ),
+      ),
+    );
 
-      if (!response.ok) throw new Error(`${topic} news RSS returned ${response.status}`);
+    const failedFeeds = feeds.filter((result) => result.status === "rejected");
+    for (const feed of failedFeeds) {
+      console.error(`News feed fallback: ${feed.reason.message}`);
+    }
 
-      return parseNewsRss(await response.text(), topic);
-    }),
-  );
+    const seen = new Set();
+    const headlines = feeds
+      .filter((result) => result.status === "fulfilled")
+      .flatMap((result) => result.value)
+      .filter((item) => {
+        const key = item.title.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+      .slice(0, 18);
 
-  const seen = new Set();
-  const headlines = feeds
-    .flat()
-    .filter((item) => {
-      const key = item.title.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-    .slice(0, 18);
+    if (!headlines.length) {
+      throw new Error("News RSS returned no matching macro headlines");
+    }
 
-  if (!headlines.length) {
-    throw new Error("News RSS returned no matching macro headlines");
+    newsCache = {
+      updatedAt: new Date().toISOString(),
+      queryTopics: NEWS_TOPICS,
+      headlines,
+      source: "Google News RSS",
+      degraded: failedFeeds.length > 0,
+    };
+    newsCacheTime = now;
+    return newsCache;
+  })();
+
+  try {
+    return await newsFetchPromise;
+  } finally {
+    newsFetchPromise = null;
   }
-
-  newsCache = {
-    updatedAt: new Date().toISOString(),
-    queryTopics: NEWS_TOPICS,
-    headlines,
-    source: "Google News RSS",
-  };
-  newsCacheTime = now;
-  return newsCache;
 }
 
 function marketById(markets, id) {
@@ -1007,9 +1056,22 @@ async function fetchMacroAlerts() {
 async function serveStatic(request, response) {
   const url = new URL(request.url, `http://${request.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
-  const filePath = path.join(ROOT, pathname);
+  if (!staticFiles.has(pathname)) {
+    response.writeHead(404);
+    response.end("Not found");
+    return;
+  }
 
-  if (!filePath.startsWith(ROOT)) {
+  let filePath;
+  try {
+    filePath = path.resolve(ROOT, `.${decodeURIComponent(pathname)}`);
+  } catch {
+    response.writeHead(400);
+    response.end("Bad request");
+    return;
+  }
+
+  if (filePath !== ROOT && !filePath.startsWith(`${ROOT}${path.sep}`)) {
     response.writeHead(403);
     response.end("Forbidden");
     return;
@@ -1027,8 +1089,10 @@ async function serveStatic(request, response) {
   }
 }
 
-const server = http.createServer(async (request, response) => {
-  if (request.url.startsWith("/api/markets")) {
+async function handleRequest(request, response) {
+  const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+
+  if (pathname === "/api/markets") {
     try {
       const payload = await fetchMarkets();
       response.writeHead(200, {
@@ -1043,7 +1107,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.url.startsWith("/api/news")) {
+  if (pathname === "/api/news") {
     try {
       const payload = await fetchMacroNews();
       response.writeHead(200, {
@@ -1058,7 +1122,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.url.startsWith("/api/brief")) {
+  if (pathname === "/api/brief") {
     try {
       const payload = await fetchDailyBrief();
       response.writeHead(200, {
@@ -1073,7 +1137,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.url.startsWith("/api/timeline")) {
+  if (pathname === "/api/timeline") {
     try {
       const payload = await fetchTimeline();
       response.writeHead(200, {
@@ -1088,7 +1152,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.url.startsWith("/api/alerts")) {
+  if (pathname === "/api/alerts") {
     try {
       const payload = await fetchMacroAlerts();
       response.writeHead(200, {
@@ -1104,8 +1168,15 @@ const server = http.createServer(async (request, response) => {
   }
 
   serveStatic(request, response);
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`Macro Radar dashboard running at http://localhost:${PORT}`);
-});
+const server = http.createServer(handleRequest);
+
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Macro Radar dashboard running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = handleRequest;
+module.exports.handleRequest = handleRequest;
