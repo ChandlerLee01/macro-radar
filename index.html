@@ -27,6 +27,17 @@
 
       <section class="metrics-grid" id="metricsGrid" aria-label="Market indicators"></section>
 
+      <section class="charts-panel" aria-labelledby="chartsHeading">
+        <div class="section-heading charts-heading">
+          <div>
+            <p class="eyebrow">Interactive Charts</p>
+            <h2 id="chartsHeading">1D / 1W Asset Moves</h2>
+          </div>
+          <span class="tag">Hover Enabled</span>
+        </div>
+        <div class="charts-grid" id="chartsGrid"></div>
+      </section>
+
       <section class="summary-layout">
         <article class="summary-panel">
           <div class="section-heading">
@@ -34,7 +45,7 @@
               <p class="eyebrow">AI Summary</p>
               <h2>Market Pulse</h2>
             </div>
-            <span class="tag">Generated</span>
+            <span class="tag" id="summaryTag">Generated</span>
           </div>
           <p id="marketSummary">Loading live market data...</p>
           <div class="summary-points" id="summaryPoints"></div>
@@ -71,6 +82,20 @@
             </div>
           </div>
         </aside>
+      </section>
+
+      <section class="news-panel" aria-labelledby="newsHeading">
+        <div class="section-heading news-heading">
+          <div>
+            <p class="eyebrow">Live Macro News</p>
+            <h2 id="newsHeading">Headlines Moving the Tape</h2>
+          </div>
+          <div class="news-meta">
+            <span class="tag" id="newsStatus">Loading</span>
+          </div>
+        </div>
+        <div class="topic-strip" id="topicStrip"></div>
+        <div class="news-list" id="newsList"></div>
       </section>
     </main>
 
