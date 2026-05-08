@@ -6,6 +6,7 @@ loadEnvFile();
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
+const PUBLIC_ROOT = path.join(ROOT, "public");
 const DATA_ROOT =
   process.env.DATA_DIR || (process.env.VERCEL ? path.join("/tmp", "macro-radar") : ROOT);
 const BRIEFS_DIR = path.join(DATA_ROOT, "briefs");
@@ -1064,14 +1065,14 @@ async function serveStatic(request, response) {
 
   let filePath;
   try {
-    filePath = path.resolve(ROOT, `.${decodeURIComponent(pathname)}`);
+    filePath = path.resolve(PUBLIC_ROOT, `.${decodeURIComponent(pathname)}`);
   } catch {
     response.writeHead(400);
     response.end("Bad request");
     return;
   }
 
-  if (filePath !== ROOT && !filePath.startsWith(`${ROOT}${path.sep}`)) {
+  if (filePath !== PUBLIC_ROOT && !filePath.startsWith(`${PUBLIC_ROOT}${path.sep}`)) {
     response.writeHead(403);
     response.end("Forbidden");
     return;

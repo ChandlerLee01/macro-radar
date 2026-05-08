@@ -1,12 +1,44 @@
 {
   "version": 2,
-  "rewrites": [
+  "routes": [
     {
-      "source": "/",
-      "destination": "/index.html"
+      "src": "/api/markets",
+      "dest": "/api/markets.js"
+    },
+    {
+      "src": "/api/news",
+      "dest": "/api/news.js"
+    },
+    {
+      "src": "/api/alerts",
+      "dest": "/api/alerts.js"
+    },
+    {
+      "src": "/api/brief",
+      "dest": "/api/brief.js"
+    },
+    {
+      "src": "/api/timeline",
+      "dest": "/api/timeline.js"
+    },
+    {
+      "src": "/styles.css",
+      "dest": "/styles.css"
+    },
+    {
+      "src": "/script.js",
+      "dest": "/script.js"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
     }
   ],
   "functions": {
+    "server.js": {
+      "includeFiles": "public/**",
+      "maxDuration": 30
+    },
     "api/*.js": {
       "maxDuration": 30
     }

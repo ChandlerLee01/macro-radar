@@ -18,7 +18,7 @@ It is designed as a lightweight public-beta prototype: one Node server, static f
 ## Tech Stack
 
 - Node.js HTTP server
-- Vanilla HTML, CSS, and JavaScript
+- Vanilla HTML, CSS, and JavaScript in `public/`
 - Vercel serverless API compatibility
 - Stooq market data
 - U.S. Treasury yield curve XML
@@ -92,7 +92,7 @@ package.json
 .vercelignore
 ```
 
-Vercel serves the static dashboard files from the project root. The API endpoints are implemented as Vercel serverless functions in `api/`.
+Vercel serves the static dashboard files from `public/`. The API endpoints are implemented as Vercel serverless functions in `api/`.
 
 ### Vercel Environment Variables
 
