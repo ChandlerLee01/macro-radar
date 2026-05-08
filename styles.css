@@ -1,0 +1,302 @@
+:root {
+  color-scheme: dark;
+  --bg: #080b10;
+  --panel: #101722;
+  --panel-2: #0d131d;
+  --border: #223044;
+  --text: #edf3fb;
+  --muted: #8fa0b5;
+  --gold: #f4bf4f;
+  --green: #49d68f;
+  --red: #ff6f7d;
+  --blue: #67a7ff;
+  --violet: #b18cff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(47, 118, 255, 0.16), transparent 28rem),
+    linear-gradient(180deg, #0b1018 0%, var(--bg) 52%);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.dashboard {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: clamp(2.1rem, 5vw, 4.2rem);
+  line-height: 0.96;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: 1.15rem;
+}
+
+.status-pill,
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(16, 23, 34, 0.82);
+  color: #d5dfed;
+  padding: 0 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 6px rgba(73, 214, 143, 0.14);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.metric-card,
+.summary-panel,
+.watch-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(20, 30, 44, 0.96), rgba(13, 19, 29, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+}
+
+.metric-card {
+  min-height: 228px;
+  padding: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+.metric-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metric-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.metric-label {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.metric-value {
+  margin-bottom: 8px;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.metric-change {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(73, 214, 143, 0.12);
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.metric-change.down {
+  background: rgba(255, 111, 125, 0.12);
+  color: var(--red);
+}
+
+.sparkline {
+  width: 100%;
+  height: 72px;
+  margin-top: 26px;
+}
+
+.sparkline path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.metric-foot {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.summary-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.9fr);
+  gap: 16px;
+}
+
+.summary-panel,
+.watch-panel {
+  padding: 24px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.section-heading.compact {
+  margin-bottom: 20px;
+}
+
+#marketSummary {
+  max-width: 780px;
+  color: #c8d5e6;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.summary-points {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.point {
+  border: 1px solid rgba(143, 160, 181, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 14px;
+}
+
+.point strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.88rem;
+}
+
+.point p,
+.signal p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.signal-list {
+  display: grid;
+  gap: 18px;
+}
+
+.signal {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: 12px;
+}
+
+.signal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+}
+
+.signal-dot.gold {
+  background: var(--gold);
+}
+
+.signal-dot.equity {
+  background: var(--green);
+}
+
+.signal-dot.rates {
+  background: var(--blue);
+}
+
+@media (max-width: 980px) {
+  .metrics-grid,
+  .summary-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard {
+    width: min(100% - 24px, 1180px);
+    padding: 24px 0;
+  }
+
+  .topbar,
+  .section-heading {
+    flex-direction: column;
+  }
+
+  .metrics-grid,
+  .summary-layout,
+  .summary-points {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card {
+    min-height: 210px;
+  }
+}

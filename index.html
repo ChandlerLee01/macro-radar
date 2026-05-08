@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Macro Radar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="dashboard">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Macro Radar</p>
+          <h1>Market Dashboard</h1>
+        </div>
+        <div class="status-pill" id="refreshStatus">
+          <span class="pulse"></span>
+          Connecting
+        </div>
+      </header>
+
+      <section class="metrics-grid" id="metricsGrid" aria-label="Market indicators"></section>
+
+      <section class="summary-layout">
+        <article class="summary-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">AI Summary</p>
+              <h2>Market Pulse</h2>
+            </div>
+            <span class="tag">Generated</span>
+          </div>
+          <p id="marketSummary">Loading live market data...</p>
+          <div class="summary-points" id="summaryPoints"></div>
+        </article>
+
+        <aside class="watch-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Watchlist</p>
+              <h2>Key Signals</h2>
+            </div>
+          </div>
+          <div class="signal-list">
+            <div class="signal">
+              <span class="signal-dot gold"></span>
+              <div>
+                <strong>Defensive demand</strong>
+                <p>Gold remains bid while investors monitor inflation and geopolitical risk.</p>
+              </div>
+            </div>
+            <div class="signal">
+              <span class="signal-dot equity"></span>
+              <div>
+                <strong>Risk appetite</strong>
+                <p>Equities are firm, supported by earnings momentum and AI capital spending.</p>
+              </div>
+            </div>
+            <div class="signal">
+              <span class="signal-dot rates"></span>
+              <div>
+                <strong>Rates anchor</strong>
+                <p>The 10Y yield is near the mid-4% area, keeping valuation pressure visible.</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
