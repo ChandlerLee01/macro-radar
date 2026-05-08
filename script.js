@@ -184,6 +184,29 @@ function renderSummary(summary, summaryPoints, provider) {
     .join("");
 }
 
+function renderRegime(regime) {
+  if (!regime) return;
+
+  document.querySelector("#regimeLabel").textContent = regime.label;
+  document.querySelector("#regimeConfidence").textContent = `${regime.confidence}% confidence`;
+  document.querySelector("#regimeExplanation").textContent = regime.explanation;
+  document.querySelector("#regimeInputs").innerHTML = [
+    ["S&P 500", regime.inputs.spxMove],
+    ["DXY", regime.inputs.dxyMove],
+    ["Gold", regime.inputs.goldMove],
+    ["US10Y", regime.inputs.tenYearMove],
+  ]
+    .map(
+      ([label, value]) => `
+        <div class="regime-input">
+          <span>${label}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `,
+    )
+    .join("");
+}
+
 function renderLoading() {
   document.querySelector("#metricsGrid").innerHTML = Array.from({ length: 4 })
     .map(
@@ -205,6 +228,20 @@ function renderLoading() {
           <div class="chart-value">--</div>
           <div class="chart-stage empty-chart">Waiting for history...</div>
         </article>
+      `,
+    )
+    .join("");
+
+  document.querySelector("#regimeLabel").textContent = "Calculating...";
+  document.querySelector("#regimeConfidence").textContent = "-- confidence";
+  document.querySelector("#regimeExplanation").textContent = "Waiting for live macro signals.";
+  document.querySelector("#regimeInputs").innerHTML = Array.from({ length: 4 })
+    .map(
+      () => `
+        <div class="regime-input loading-card">
+          <span>Signal</span>
+          <strong>--</strong>
+        </div>
       `,
     )
     .join("");
@@ -291,6 +328,7 @@ async function refreshMarkets() {
     const payload = await response.json();
     renderMetrics(payload.markets);
     renderCharts(payload.markets);
+    renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
     setStatus(`Updated ${new Date(payload.updatedAt).toLocaleTimeString([], {
       hour: "2-digit",

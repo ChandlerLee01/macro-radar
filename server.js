@@ -197,6 +197,16 @@ function changeText(change, suffix = "%") {
   return `${sign}${change.toFixed(2)}${suffix}`;
 }
 
+function formatPct(value) {
+  if (!Number.isFinite(value)) return "N/A";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatBps(value) {
+  if (!Number.isFinite(value)) return "N/A";
+  return `${value >= 0 ? "+" : ""}${Math.round(value)} bps`;
+}
+
 function sourceTime(row) {
   return `${row.Date} ${row.Time}`.trim();
 }
@@ -211,6 +221,107 @@ function parseTreasuryXml(xml) {
   return entries
     .filter((entry) => entry.date && Number.isFinite(entry.tenYear))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function signal(value, positiveThreshold, negativeThreshold = -positiveThreshold) {
+  if (!Number.isFinite(value)) return 0;
+  if (value >= positiveThreshold) return 1;
+  if (value <= negativeThreshold) return -1;
+  return value / positiveThreshold;
+}
+
+function positivePart(value) {
+  return Math.max(0, value);
+}
+
+function negativePart(value) {
+  return Math.max(0, -value);
+}
+
+function buildMarketRegime({ spxMove, dxyMove, goldMove, tenYearBps }) {
+  const equity = signal(spxMove, 0.35);
+  const dollar = signal(dxyMove, 0.15);
+  const gold = signal(goldMove, 0.35);
+  const rates = signal(tenYearBps, 5);
+  const scores = [
+    {
+      label: "Risk On",
+      score:
+        positivePart(equity) * 3 +
+        negativePart(dollar) * 1.4 +
+        negativePart(gold) * 1 +
+        Math.max(0, 1 - Math.abs(rates)) * 0.8,
+    },
+    {
+      label: "Risk Off",
+      score:
+        negativePart(equity) * 3 +
+        positivePart(dollar) * 1.5 +
+        positivePart(gold) * 1.2 +
+        negativePart(rates) * 0.8,
+    },
+    {
+      label: "Inflation Fear",
+      score:
+        positivePart(gold) * 2.4 +
+        positivePart(rates) * 2.3 +
+        positivePart(dollar) * 0.9 +
+        negativePart(equity) * 0.8,
+    },
+    {
+      label: "Growth Optimism",
+      score:
+        positivePart(equity) * 2.6 +
+        positivePart(rates) * 1.2 +
+        negativePart(gold) * 1 +
+        Math.max(0, 1 - Math.abs(dollar)) * 0.8,
+    },
+    {
+      label: "Defensive Positioning",
+      score:
+        positivePart(gold) * 2.2 +
+        positivePart(dollar) * 1.7 +
+        negativePart(equity) * 1.2 +
+        Math.max(0, 1 - positivePart(rates)) * 0.8,
+    },
+    {
+      label: "Rate Shock",
+      score:
+        positivePart(rates) * 3 +
+        negativePart(equity) * 2 +
+        positivePart(dollar) * 1.1 +
+        negativePart(gold) * 0.7,
+    },
+  ].sort((a, b) => b.score - a.score);
+
+  const winner = scores[0];
+  const runnerUp = scores[1];
+  const strength = Math.min(1, winner.score / 6);
+  const separation = Math.min(1, (winner.score - runnerUp.score) / 2);
+  const confidence = Math.round(
+    Math.min(94, Math.max(45, 45 + strength * 28 + separation * 24)),
+  );
+  const explanation = `${winner.label} leads because the S&P 500 is ${formatPct(
+    spxMove,
+  )}, DXY is ${formatPct(dxyMove)}, gold is ${formatPct(
+    goldMove,
+  )}, and the US 10Y yield is ${formatBps(tenYearBps)}.`;
+
+  return {
+    label: winner.label,
+    confidence,
+    explanation,
+    inputs: {
+      spxMove: formatPct(spxMove),
+      dxyMove: formatPct(dxyMove),
+      goldMove: formatPct(goldMove),
+      tenYearMove: formatBps(tenYearBps),
+    },
+    scores: scores.map((item) => ({
+      label: item.label,
+      score: Number(item.score.toFixed(2)),
+    })),
+  };
 }
 
 function decodeXml(value = "") {
@@ -437,14 +548,18 @@ async function fetchMarkets() {
   }
 
   const tenYearChange = latestYield.tenYear - previousYield.tenYear;
+  const goldMove = pctChange(num(gold.Close), num(gold.Open));
+  const spxMove = pctChange(num(spx.Close), num(spx.Open));
+  const dxyMove = pctChange(num(dxy.Close), num(dxy.Open));
+  const tenYearBps = tenYearChange * 100;
   const markets = [
     {
       id: "gold",
       label: "Gold Price",
       icon: "Au",
       value: currency(num(gold.Close)),
-      change: changeText(pctChange(num(gold.Close), num(gold.Open))),
-      rawChange: pctChange(num(gold.Close), num(gold.Open)),
+      change: changeText(goldMove),
+      rawChange: goldMove,
       detail: `XAU/USD spot, ${sourceTime(gold)}`,
       accent: "#f4bf4f",
       trend: marketTrend(gold),
@@ -452,15 +567,15 @@ async function fetchMarkets() {
         "1D": intradayChart(gold, currency),
         "1W": weeklyChart(history.gold, gold, currency),
       },
-      down: pctChange(num(gold.Close), num(gold.Open)) < 0,
+      down: goldMove < 0,
     },
     {
       id: "spx",
       label: "S&P 500",
       icon: "SP",
       value: indexValue(num(spx.Close)),
-      change: changeText(pctChange(num(spx.Close), num(spx.Open))),
-      rawChange: pctChange(num(spx.Close), num(spx.Open)),
+      change: changeText(spxMove),
+      rawChange: spxMove,
       detail: `S&P 500 index, ${sourceTime(spx)}`,
       accent: "#49d68f",
       trend: marketTrend(spx),
@@ -468,15 +583,15 @@ async function fetchMarkets() {
         "1D": intradayChart(spx, indexValue),
         "1W": weeklyChart(history.spx, spx, indexValue),
       },
-      down: pctChange(num(spx.Close), num(spx.Open)) < 0,
+      down: spxMove < 0,
     },
     {
       id: "dxy",
       label: "US Dollar Index",
       icon: "DXY",
       value: indexValue(num(dxy.Close)),
-      change: changeText(pctChange(num(dxy.Close), num(dxy.Open))),
-      rawChange: pctChange(num(dxy.Close), num(dxy.Open)),
+      change: changeText(dxyMove),
+      rawChange: dxyMove,
       detail: `DXY futures proxy, ${sourceTime(dxy)}`,
       accent: "#67a7ff",
       trend: marketTrend(dxy),
@@ -484,14 +599,14 @@ async function fetchMarkets() {
         "1D": intradayChart(dxy, indexValue),
         "1W": weeklyChart(history.dxy, dxy, indexValue),
       },
-      down: pctChange(num(dxy.Close), num(dxy.Open)) < 0,
+      down: dxyMove < 0,
     },
     {
       id: "tenYear",
       label: "US 10Y Treasury Yield",
       icon: "10Y",
       value: `${latestYield.tenYear.toFixed(2)}%`,
-      change: `${tenYearChange >= 0 ? "+" : ""}${Math.round(tenYearChange * 100)} bps`,
+      change: formatBps(tenYearBps),
       rawChange: tenYearChange,
       detail: `Treasury daily curve, ${latestYield.date}`,
       accent: "#b18cff",
@@ -509,10 +624,17 @@ async function fetchMarkets() {
   ];
 
   const aiSummary = await generateAiSummary(markets);
+  const regime = buildMarketRegime({
+    spxMove,
+    dxyMove,
+    goldMove,
+    tenYearBps,
+  });
 
   cache = {
     updatedAt: new Date().toISOString(),
     markets,
+    regime,
     ...aiSummary,
     sources: ["Stooq CSV", "U.S. Treasury yield curve XML", "OpenAI Responses API"],
   };
