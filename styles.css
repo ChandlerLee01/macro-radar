@@ -100,8 +100,10 @@ h2 {
 
 .metric-card,
 .regime-panel,
+.alerts-panel,
 .summary-panel,
 .watch-panel,
+.brief-panel,
 .news-panel,
 .chart-card {
   border: 1px solid var(--border);
@@ -252,6 +254,104 @@ h2 {
   font-size: 1.08rem;
 }
 
+.alerts-panel {
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.alerts-heading {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.alerts-list {
+  display: grid;
+  gap: 10px;
+}
+
+.alert-item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 14px;
+  border: 1px solid rgba(143, 160, 181, 0.18);
+  border-left: 4px solid var(--blue);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 14px;
+}
+
+.alert-item.medium {
+  border-left-color: var(--gold);
+}
+
+.alert-item.high {
+  border-left-color: var(--red);
+}
+
+.alert-severity {
+  align-self: start;
+  width: max-content;
+  border-radius: 999px;
+  background: rgba(103, 167, 255, 0.12);
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 6px 8px;
+  text-transform: uppercase;
+}
+
+.alert-item.medium .alert-severity {
+  background: rgba(244, 191, 79, 0.12);
+  color: var(--gold);
+}
+
+.alert-item.high .alert-severity {
+  background: rgba(255, 111, 125, 0.12);
+  color: var(--red);
+}
+
+.alert-copy > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alert-copy h3 {
+  margin: 0 0 7px;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.alert-copy time {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.alert-copy p,
+.alert-empty p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.alert-empty {
+  border: 1px solid rgba(143, 160, 181, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 16px;
+}
+
+.alert-empty strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
 .charts-panel {
   margin-bottom: 16px;
 }
@@ -397,6 +497,8 @@ h2 {
 
 .summary-panel,
 .watch-panel,
+.brief-panel,
+.timeline-panel,
 .news-panel {
   padding: 24px;
 }
@@ -476,6 +578,202 @@ h2 {
 
 .signal-dot.rates {
   background: var(--blue);
+}
+
+.brief-panel {
+  margin-bottom: 16px;
+}
+
+.brief-heading {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.brief-theme {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 18px;
+  border-top: 1px solid rgba(143, 160, 181, 0.16);
+  border-bottom: 1px solid rgba(143, 160, 181, 0.16);
+  padding: 18px 0;
+}
+
+.brief-theme span {
+  color: var(--gold);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.brief-theme p {
+  margin-bottom: 0;
+  color: #c8d5e6;
+  line-height: 1.65;
+}
+
+.brief-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.brief-block {
+  border: 1px solid rgba(143, 160, 181, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 16px;
+}
+
+.brief-block h3 {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+}
+
+.brief-block ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.brief-interpretation {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 16px;
+  border-top: 1px solid rgba(143, 160, 181, 0.16);
+  padding-top: 16px;
+}
+
+.brief-interpretation strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.brief-interpretation p {
+  margin-bottom: 0;
+  color: #c8d5e6;
+  line-height: 1.6;
+}
+
+.timeline-panel {
+  margin-bottom: 16px;
+}
+
+.timeline-heading {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.timeline-list {
+  display: grid;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 18px;
+  border-top: 1px solid rgba(143, 160, 181, 0.16);
+  padding: 18px 0;
+}
+
+.timeline-date {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.timeline-date span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.timeline-date strong {
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1.15;
+}
+
+.timeline-date em {
+  width: max-content;
+  border-radius: 999px;
+  background: rgba(244, 191, 79, 0.12);
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.timeline-copy p {
+  margin-bottom: 14px;
+  color: #c8d5e6;
+  line-height: 1.6;
+}
+
+.timeline-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.timeline-columns > div {
+  border: 1px solid rgba(143, 160, 181, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 13px;
+}
+
+.timeline-columns span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.timeline-columns ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 17px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.timeline-interpretation,
+.timeline-empty {
+  margin-top: 12px;
+  border-left: 3px solid var(--blue);
+  background: rgba(103, 167, 255, 0.07);
+  color: #c8d5e6;
+  padding: 12px 14px;
+  line-height: 1.5;
+}
+
+.timeline-empty {
+  margin-top: 0;
+  border-left-color: var(--gold);
+}
+
+.timeline-empty strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.timeline-empty p {
+  margin-bottom: 0;
+  color: var(--muted);
 }
 
 .news-panel {
@@ -611,6 +909,9 @@ h2 {
   .metrics-grid,
   .summary-layout,
   .regime-body,
+  .brief-grid,
+  .timeline-item,
+  .timeline-columns,
   .charts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -636,12 +937,19 @@ h2 {
   .summary-points,
   .regime-body,
   .regime-inputs,
+  .brief-theme,
+  .brief-grid,
+  .brief-interpretation,
+  .timeline-item,
+  .timeline-columns,
   .charts-grid {
     grid-template-columns: 1fr;
   }
 
   .charts-heading,
   .regime-heading,
+  .brief-heading,
+  .timeline-heading,
   .chart-top,
   .chart-readout {
     flex-direction: column;
@@ -649,6 +957,12 @@ h2 {
 
   .chart-stage {
     height: 170px;
+  }
+
+  .alert-item,
+  .alert-copy > div {
+    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .metric-card {

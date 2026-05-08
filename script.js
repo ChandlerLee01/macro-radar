@@ -1,5 +1,7 @@
 const REFRESH_MS = 60_000;
 const NEWS_REFRESH_MS = 120_000;
+const BRIEF_REFRESH_MS = 300_000;
+const ALERT_REFRESH_MS = 60_000;
 const chartPeriods = {};
 let latestMarkets = [];
 
@@ -207,6 +209,105 @@ function renderRegime(regime) {
     .join("");
 }
 
+function renderList(selector, items) {
+  document.querySelector(selector).innerHTML = items
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+}
+
+function renderBrief(brief) {
+  document.querySelector("#briefStatus").textContent = `Saved ${brief.date}`;
+  document.querySelector(
+    "#briefRegime",
+  ).textContent = `${brief.regime.label} / ${brief.regime.confidence}%`;
+  document.querySelector("#briefTheme").textContent = brief.marketTheme;
+  renderList("#briefRisks", brief.mainRisks);
+  renderList("#briefDrivers", brief.keyDrivers);
+  renderList("#briefWatching", brief.watchingNext);
+  document.querySelector("#briefInterpretation").textContent = brief.actionableInterpretation;
+}
+
+function renderTimeline(payload) {
+  document.querySelector("#timelineStatus").textContent = `${payload.count} saved`;
+  const list = document.querySelector("#timelineList");
+
+  if (!payload.items.length) {
+    list.innerHTML = `
+      <article class="timeline-empty">
+        <strong>No historical briefs yet.</strong>
+        <p>Daily briefs will appear here after they are generated and saved locally.</p>
+      </article>
+    `;
+    return;
+  }
+
+  list.innerHTML = payload.items
+    .map(
+      (item) => `
+        <article class="timeline-item">
+          <div class="timeline-date">
+            <span>${escapeHtml(item.date)}</span>
+            <strong>${escapeHtml(item.regime.label)}</strong>
+            <em>${item.regime.confidence}%</em>
+          </div>
+          <div class="timeline-copy">
+            <p>${escapeHtml(item.marketTheme)}</p>
+            <div class="timeline-columns">
+              <div>
+                <span>Main Risks</span>
+                <ul>${item.mainRisks.map((risk) => `<li>${escapeHtml(risk)}</li>`).join("")}</ul>
+              </div>
+              <div>
+                <span>Key Drivers</span>
+                <ul>${item.keyDrivers.map((driver) => `<li>${escapeHtml(driver)}</li>`).join("")}</ul>
+              </div>
+            </div>
+            <div class="timeline-interpretation">
+              ${escapeHtml(item.actionableInterpretation)}
+            </div>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderAlerts(payload) {
+  const alerts = payload.history.slice(0, 8);
+  document.querySelector("#alertsStatus").textContent = `${payload.count} stored`;
+
+  if (!alerts.length) {
+    document.querySelector("#alertsList").innerHTML = `
+      <article class="alert-empty">
+        <strong>No macro alerts triggered.</strong>
+        <p>The engine is monitoring gold, DXY, US10Y, regime changes, and risk sentiment.</p>
+      </article>
+    `;
+    return;
+  }
+
+  document.querySelector("#alertsList").innerHTML = alerts
+    .map((alert) => {
+      const timestamp = new Date(alert.timestamp);
+      const time = Number.isNaN(timestamp.getTime())
+        ? "--:--"
+        : timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return `
+        <article class="alert-item ${escapeHtml(alert.severity)}">
+          <div class="alert-severity">${escapeHtml(alert.severity)}</div>
+          <div class="alert-copy">
+            <div>
+              <h3>${escapeHtml(alert.title)}</h3>
+              <time>${time}</time>
+            </div>
+            <p>${escapeHtml(alert.explanation)}</p>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderLoading() {
   document.querySelector("#metricsGrid").innerHTML = Array.from({ length: 4 })
     .map(
@@ -245,6 +346,30 @@ function renderLoading() {
       `,
     )
     .join("");
+
+  document.querySelector("#briefStatus").textContent = "Loading";
+  document.querySelector("#briefRegime").textContent = "--";
+  document.querySelector("#briefTheme").textContent = "Generating today’s market theme...";
+  renderList("#briefRisks", ["Waiting for risk signals"]);
+  renderList("#briefDrivers", ["Waiting for asset moves"]);
+  renderList("#briefWatching", ["Waiting for macro headlines"]);
+  document.querySelector("#briefInterpretation").textContent = "Waiting for live macro data.";
+
+  document.querySelector("#timelineStatus").textContent = "Loading";
+  document.querySelector("#timelineList").innerHTML = `
+    <article class="timeline-empty loading-card">
+      <strong>Loading timeline...</strong>
+      <p>Reading saved daily briefs.</p>
+    </article>
+  `;
+
+  document.querySelector("#alertsStatus").textContent = "Loading";
+  document.querySelector("#alertsList").innerHTML = `
+    <article class="alert-empty loading-card">
+      <strong>Loading alerts...</strong>
+      <p>Checking current macro thresholds.</p>
+    </article>
+  `;
 }
 
 function renderNewsLoading() {
@@ -365,6 +490,63 @@ async function refreshNews() {
   }
 }
 
+async function refreshBrief() {
+  try {
+    const response = await fetch("/api/brief", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Brief API returned ${response.status}`);
+    }
+
+    renderBrief(await response.json());
+    refreshTimeline();
+  } catch (error) {
+    document.querySelector("#briefStatus").textContent = "Brief unavailable";
+    document.querySelector("#briefTheme").textContent =
+      "The daily brief could not be generated. The dashboard will retry automatically.";
+    console.error(error);
+  }
+}
+
+async function refreshTimeline() {
+  try {
+    const response = await fetch("/api/timeline", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Timeline API returned ${response.status}`);
+    }
+
+    renderTimeline(await response.json());
+  } catch (error) {
+    document.querySelector("#timelineStatus").textContent = "Timeline unavailable";
+    document.querySelector("#timelineList").innerHTML = `
+      <article class="timeline-empty">
+        <strong>Could not load historical briefs.</strong>
+        <p>The dashboard will retry automatically.</p>
+      </article>
+    `;
+    console.error(error);
+  }
+}
+
+async function refreshAlerts() {
+  try {
+    const response = await fetch("/api/alerts", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Alerts API returned ${response.status}`);
+    }
+
+    renderAlerts(await response.json());
+  } catch (error) {
+    document.querySelector("#alertsStatus").textContent = "Alerts unavailable";
+    document.querySelector("#alertsList").innerHTML = `
+      <article class="alert-empty">
+        <strong>Could not load macro alerts.</strong>
+        <p>The dashboard will retry automatically.</p>
+      </article>
+    `;
+    console.error(error);
+  }
+}
+
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-chart-period]");
   if (!button) return;
@@ -396,5 +578,11 @@ renderLoading();
 renderNewsLoading();
 refreshMarkets();
 refreshNews();
+refreshBrief();
+refreshTimeline();
+refreshAlerts();
 setInterval(refreshMarkets, REFRESH_MS);
 setInterval(refreshNews, NEWS_REFRESH_MS);
+setInterval(refreshBrief, BRIEF_REFRESH_MS);
+setInterval(refreshTimeline, BRIEF_REFRESH_MS);
+setInterval(refreshAlerts, ALERT_REFRESH_MS);

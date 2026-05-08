@@ -6,6 +6,10 @@ loadEnvFile();
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
+const BRIEFS_DIR = path.join(ROOT, "briefs");
+const ALERTS_DIR = path.join(ROOT, "alerts");
+const ALERTS_FILE = path.join(ALERTS_DIR, "history.json");
+const ALERT_STATE_FILE = path.join(ALERTS_DIR, "state.json");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 const STOOQ_URL =
   "https://stooq.com/q/l/?s=xauusd+%5Espx+dx.f&f=sd2t2ohlcv&h&e=csv";
@@ -47,6 +51,8 @@ let cache = null;
 let cacheTime = 0;
 let newsCache = null;
 let newsCacheTime = 0;
+let briefCache = null;
+let briefCacheTime = 0;
 
 function loadEnvFile() {
   try {
@@ -209,6 +215,15 @@ function formatBps(value) {
 
 function sourceTime(row) {
   return `${row.Date} ${row.Time}`.trim();
+}
+
+function localDateKey(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function parseTreasuryXml(xml) {
@@ -686,6 +701,309 @@ async function fetchMacroNews() {
   return newsCache;
 }
 
+function marketById(markets, id) {
+  return markets.find((market) => market.id === id);
+}
+
+function movementText(label, market) {
+  return `${label} ${market.change} (${market.value})`;
+}
+
+function buildDailyBrief(marketsPayload, newsPayload) {
+  const markets = marketsPayload.markets;
+  const regime = marketsPayload.regime;
+  const gold = marketById(markets, "gold");
+  const spx = marketById(markets, "spx");
+  const dxy = marketById(markets, "dxy");
+  const tenYear = marketById(markets, "tenYear");
+  const headlines = newsPayload.headlines.slice(0, 6);
+  const headlineThemes = headlines
+    .slice(0, 3)
+    .map((headline) => headline.title.replace(/\s+-\s+[^-]+$/, ""))
+    .join("; ");
+  const riskList = [
+    tenYear.rawChange > 0.03 ? "higher Treasury yields pressuring duration and equity multiples" : null,
+    gold.rawChange > 0.35 ? "firm gold signaling demand for hedges" : null,
+    dxy.rawChange > 0.12 ? "dollar strength tightening financial conditions" : null,
+    spx.rawChange < -0.35 ? "equity weakness confirming cautious risk appetite" : null,
+    regime.label === "Rate Shock" ? "rate volatility dominating cross-asset pricing" : null,
+  ].filter(Boolean);
+  const risks = riskList.length
+    ? riskList
+    : ["low conviction cross-asset signals and headline sensitivity"];
+  const drivers = [
+    movementText("S&P 500", spx),
+    movementText("DXY", dxy),
+    movementText("Gold", gold),
+    movementText("US10Y", tenYear),
+  ];
+  const watchNext = [
+    "Fed communication and repricing of the next policy move",
+    "whether Treasury yields keep rising or stabilize",
+    "confirmation from the dollar and gold on defensive demand",
+    "follow-through in S&P 500 breadth after the opening move",
+  ];
+  const themeMap = {
+    "Risk On": "Risk appetite is leading the tape",
+    "Risk Off": "Defensive risk reduction is driving markets",
+    "Inflation Fear": "Inflation and rate pressure are setting the tone",
+    "Growth Optimism": "Growth expectations are offsetting rate concerns",
+    "Defensive Positioning": "Hedging demand is shaping cross-asset flows",
+    "Rate Shock": "Rates are the dominant macro shock",
+  };
+  const interpretationMap = {
+    "Risk On": "Favor risk-sensitive readings while monitoring any reversal in yields or the dollar.",
+    "Risk Off": "Stay defensive until equities stabilize and haven demand fades.",
+    "Inflation Fear": "Treat rallies cautiously while yields and gold rise together.",
+    "Growth Optimism": "Risk assets have support, but confirmation needs stable yields and a contained dollar.",
+    "Defensive Positioning": "Preserve optionality; the tape is rewarding hedges more than momentum.",
+    "Rate Shock": "Reduce sensitivity to duration and watch for policy-rate repricing.",
+  };
+
+  return {
+    date: localDateKey(),
+    generatedAt: new Date().toISOString(),
+    sourceUpdatedAt: marketsPayload.updatedAt,
+    marketTheme: `${themeMap[regime.label] || regime.label}: ${regime.explanation}`,
+    mainRisks: risks,
+    keyDrivers: drivers,
+    watchingNext: watchNext,
+    actionableInterpretation:
+      interpretationMap[regime.label] ||
+      "Use the regime signal as a bias, then require confirmation from rates, dollar, gold, and equities.",
+    regime: {
+      label: regime.label,
+      confidence: regime.confidence,
+    },
+    newsContext: headlines.map((headline) => ({
+      title: headline.title,
+      source: headline.source,
+      topics: headline.topics,
+      publishedAt: headline.publishedAt,
+      link: headline.link,
+    })),
+    summaryLine: `${regime.label} with ${regime.confidence}% confidence. Headlines focus on ${headlineThemes || "macro policy and cross-asset moves"}.`,
+  };
+}
+
+async function saveDailyBrief(brief) {
+  await fs.mkdir(BRIEFS_DIR, { recursive: true });
+  const filePath = path.join(BRIEFS_DIR, `${brief.date}.json`);
+  await fs.writeFile(filePath, `${JSON.stringify(brief, null, 2)}\n`, "utf8");
+  return filePath;
+}
+
+async function loadDailyBrief(date) {
+  try {
+    const filePath = path.join(BRIEFS_DIR, `${date}.json`);
+    return JSON.parse(await fs.readFile(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function fetchDailyBrief() {
+  const now = Date.now();
+  const today = localDateKey();
+  if (briefCache && briefCache.date === today && now - briefCacheTime < 300_000) {
+    return briefCache;
+  }
+
+  const existing = await loadDailyBrief(today);
+  if (existing && now - new Date(existing.generatedAt).getTime() < 60 * 60 * 1000) {
+    briefCache = existing;
+    briefCacheTime = now;
+    return briefCache;
+  }
+
+  const [marketsPayload, newsPayload] = await Promise.all([fetchMarkets(), fetchMacroNews()]);
+  const brief = buildDailyBrief(marketsPayload, newsPayload);
+  brief.file = path.relative(ROOT, await saveDailyBrief(brief));
+  briefCache = brief;
+  briefCacheTime = now;
+  return brief;
+}
+
+function timelineItemFromBrief(brief) {
+  return {
+    date: brief.date,
+    generatedAt: brief.generatedAt,
+    regime: brief.regime,
+    marketTheme: brief.marketTheme,
+    mainRisks: brief.mainRisks || [],
+    keyDrivers: brief.keyDrivers || [],
+    watchingNext: brief.watchingNext || [],
+    actionableInterpretation: brief.actionableInterpretation,
+    summaryLine: brief.summaryLine,
+    headlineCount: brief.newsContext?.length || 0,
+  };
+}
+
+async function fetchTimeline() {
+  await fs.mkdir(BRIEFS_DIR, { recursive: true });
+  const files = await fs.readdir(BRIEFS_DIR);
+  const briefs = await Promise.all(
+    files
+      .filter((file) => /^\d{4}-\d{2}-\d{2}\.json$/.test(file))
+      .map(async (file) => {
+        try {
+          return JSON.parse(await fs.readFile(path.join(BRIEFS_DIR, file), "utf8"));
+        } catch {
+          return null;
+        }
+      }),
+  );
+
+  return {
+    updatedAt: new Date().toISOString(),
+    count: briefs.filter(Boolean).length,
+    items: briefs
+      .filter(Boolean)
+      .map(timelineItemFromBrief)
+      .sort((a, b) => b.date.localeCompare(a.date)),
+  };
+}
+
+async function readJsonFile(filePath, fallback) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function riskSentimentForRegime(regimeLabel) {
+  if (["Risk On", "Growth Optimism"].includes(regimeLabel)) return "constructive";
+  if (["Risk Off", "Defensive Positioning"].includes(regimeLabel)) return "defensive";
+  if (["Inflation Fear", "Rate Shock"].includes(regimeLabel)) return "stress";
+  return "neutral";
+}
+
+function severityForMove(absMove, mediumThreshold, highThreshold) {
+  if (absMove >= highThreshold) return "high";
+  if (absMove >= mediumThreshold) return "medium";
+  return "low";
+}
+
+function alertId(type, date, detail) {
+  return `${date}:${type}:${detail}`.toLowerCase().replace(/[^a-z0-9:+.-]+/g, "-");
+}
+
+function buildMacroAlerts(marketsPayload, previousState) {
+  const date = localDateKey();
+  const now = new Date().toISOString();
+  const markets = marketsPayload.markets;
+  const gold = marketById(markets, "gold");
+  const dxy = marketById(markets, "dxy");
+  const tenYear = marketById(markets, "tenYear");
+  const spx = marketById(markets, "spx");
+  const regime = marketsPayload.regime;
+  const currentSentiment = riskSentimentForRegime(regime.label);
+  const alerts = [];
+
+  if (Math.abs(gold.rawChange) >= 1) {
+    const direction = gold.rawChange > 0 ? "surges" : "drops";
+    const severity = severityForMove(Math.abs(gold.rawChange), 1, 1.75);
+    alerts.push({
+      id: alertId("gold", date, direction),
+      type: "gold-move",
+      title: `Gold ${direction} more than 1%`,
+      explanation: `Gold is ${gold.change} at ${gold.value}, signaling a sharp move in hedge demand.`,
+      severity,
+      timestamp: now,
+    });
+  }
+
+  if (Math.abs(dxy.rawChange) >= 0.25) {
+    const direction = dxy.rawChange > 0 ? "strengthens sharply" : "weakens sharply";
+    const severity = severityForMove(Math.abs(dxy.rawChange), 0.25, 0.5);
+    alerts.push({
+      id: alertId("dxy", date, direction),
+      type: "dxy-move",
+      title: `DXY ${direction}`,
+      explanation: `The dollar index is ${dxy.change} at ${dxy.value}, a move large enough to affect global liquidity and risk appetite.`,
+      severity,
+      timestamp: now,
+    });
+  }
+
+  const tenYearBps = Math.round(tenYear.rawChange * 100);
+  if (Math.abs(tenYearBps) >= 5) {
+    const bps = tenYearBps;
+    const direction = bps > 0 ? "jumps" : "falls";
+    const severity = severityForMove(Math.abs(bps), 5, 10);
+    alerts.push({
+      id: alertId("us10y", date, direction),
+      type: "yield-move",
+      title: `US10Y yield ${direction} significantly`,
+      explanation: `The 10Y Treasury yield moved ${formatBps(bps)} to ${tenYear.value}, raising rate sensitivity across assets.`,
+      severity,
+      timestamp: now,
+    });
+  }
+
+  if (previousState.lastRegime && previousState.lastRegime !== regime.label) {
+    alerts.push({
+      id: alertId("regime", date, `${previousState.lastRegime}-to-${regime.label}`),
+      type: "regime-change",
+      title: `Market regime changed to ${regime.label}`,
+      explanation: `The regime engine moved from ${previousState.lastRegime} to ${regime.label} with ${regime.confidence}% confidence.`,
+      severity: regime.confidence >= 75 ? "high" : "medium",
+      timestamp: now,
+    });
+  }
+
+  if (previousState.riskSentiment && previousState.riskSentiment !== currentSentiment) {
+    alerts.push({
+      id: alertId("sentiment", date, `${previousState.riskSentiment}-to-${currentSentiment}`),
+      type: "risk-sentiment",
+      title: `Risk sentiment shifted to ${currentSentiment}`,
+      explanation: `Cross-asset signals changed from ${previousState.riskSentiment} to ${currentSentiment}: S&P 500 ${spx.change}, DXY ${dxy.change}, gold ${gold.change}, US10Y ${tenYear.change}.`,
+      severity: currentSentiment === "stress" ? "high" : "medium",
+      timestamp: now,
+    });
+  }
+
+  return {
+    alerts,
+    nextState: {
+      lastRegime: regime.label,
+      riskSentiment: currentSentiment,
+      updatedAt: now,
+    },
+  };
+}
+
+async function saveAlerts(alerts, nextState) {
+  await fs.mkdir(ALERTS_DIR, { recursive: true });
+  const history = await readJsonFile(ALERTS_FILE, []);
+  const existingIds = new Set(history.map((alert) => alert.id));
+  const freshAlerts = alerts.filter((alert) => !existingIds.has(alert.id));
+  const nextHistory = [...freshAlerts, ...history].slice(0, 250);
+
+  await fs.writeFile(ALERTS_FILE, `${JSON.stringify(nextHistory, null, 2)}\n`, "utf8");
+  await fs.writeFile(ALERT_STATE_FILE, `${JSON.stringify(nextState, null, 2)}\n`, "utf8");
+
+  return {
+    freshAlerts,
+    history: nextHistory,
+  };
+}
+
+async function fetchMacroAlerts() {
+  const marketsPayload = await fetchMarkets();
+  const previousState = await readJsonFile(ALERT_STATE_FILE, {});
+  const { alerts, nextState } = buildMacroAlerts(marketsPayload, previousState);
+  const saved = await saveAlerts(alerts, nextState);
+
+  return {
+    updatedAt: new Date().toISOString(),
+    active: saved.freshAlerts,
+    history: saved.history,
+    count: saved.history.length,
+  };
+}
+
 async function serveStatic(request, response) {
   const url = new URL(request.url, `http://${request.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
@@ -728,6 +1046,51 @@ const server = http.createServer(async (request, response) => {
   if (request.url.startsWith("/api/news")) {
     try {
       const payload = await fetchMacroNews();
+      response.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify(payload));
+    } catch (error) {
+      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (request.url.startsWith("/api/brief")) {
+    try {
+      const payload = await fetchDailyBrief();
+      response.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify(payload));
+    } catch (error) {
+      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (request.url.startsWith("/api/timeline")) {
+    try {
+      const payload = await fetchTimeline();
+      response.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify(payload));
+    } catch (error) {
+      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ error: error.message }));
+    }
+    return;
+  }
+
+  if (request.url.startsWith("/api/alerts")) {
+    try {
+      const payload = await fetchMacroAlerts();
       response.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",

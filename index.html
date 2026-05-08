@@ -44,6 +44,17 @@
         </div>
       </section>
 
+      <section class="alerts-panel" aria-labelledby="alertsHeading">
+        <div class="section-heading alerts-heading">
+          <div>
+            <p class="eyebrow">Macro Alert Engine</p>
+            <h2 id="alertsHeading">Live Alerts</h2>
+          </div>
+          <span class="tag" id="alertsStatus">Loading</span>
+        </div>
+        <div class="alerts-list" id="alertsList"></div>
+      </section>
+
       <section class="charts-panel" aria-labelledby="chartsHeading">
         <div class="section-heading charts-heading">
           <div>
@@ -99,6 +110,49 @@
             </div>
           </div>
         </aside>
+      </section>
+
+      <section class="brief-panel" aria-labelledby="briefHeading">
+        <div class="section-heading brief-heading">
+          <div>
+            <p class="eyebrow">Daily Macro Brief</p>
+            <h2 id="briefHeading">Today’s Market Briefing</h2>
+          </div>
+          <span class="tag" id="briefStatus">Loading</span>
+        </div>
+        <div class="brief-theme">
+          <span id="briefRegime">--</span>
+          <p id="briefTheme">Generating today’s market theme...</p>
+        </div>
+        <div class="brief-grid">
+          <article class="brief-block">
+            <h3>Main Risks</h3>
+            <ul id="briefRisks"></ul>
+          </article>
+          <article class="brief-block">
+            <h3>Key Drivers</h3>
+            <ul id="briefDrivers"></ul>
+          </article>
+          <article class="brief-block">
+            <h3>Watching Next</h3>
+            <ul id="briefWatching"></ul>
+          </article>
+        </div>
+        <div class="brief-interpretation">
+          <strong>Actionable Interpretation</strong>
+          <p id="briefInterpretation">Waiting for live macro data.</p>
+        </div>
+      </section>
+
+      <section class="timeline-panel" aria-labelledby="timelineHeading">
+        <div class="section-heading timeline-heading">
+          <div>
+            <p class="eyebrow">Historical Timeline</p>
+            <h2 id="timelineHeading">Past Regimes & Briefs</h2>
+          </div>
+          <span class="tag" id="timelineStatus">Loading</span>
+        </div>
+        <div class="timeline-list" id="timelineList"></div>
       </section>
 
       <section class="news-panel" aria-labelledby="newsHeading">
