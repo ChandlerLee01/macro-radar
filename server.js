@@ -1180,3 +1180,10 @@ if (require.main === module) {
 
 module.exports = handleRequest;
 module.exports.handleRequest = handleRequest;
+module.exports.api = {
+  fetchMarkets,
+  fetchMacroNews,
+  fetchDailyBrief,
+  fetchTimeline,
+  fetchMacroAlerts,
+};

@@ -82,13 +82,17 @@ On Vercel, runtime history is written to `/tmp/macro-radar` unless `DATA_DIR` is
 The project includes:
 
 ```text
-api/index.js
+api/markets.js
+api/news.js
+api/brief.js
+api/timeline.js
+api/alerts.js
 vercel.json
 package.json
 .vercelignore
 ```
 
-Vercel serves the static dashboard files from the project root and rewrites `/api/*` requests to the serverless API handler.
+Vercel serves the static dashboard files from the project root. The API endpoints are implemented as Vercel serverless functions in `api/`.
 
 ### Vercel Environment Variables
 
