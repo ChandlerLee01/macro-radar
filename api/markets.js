@@ -1,4 +1,4 @@
-const { fetchMarketsSafe } = require("../server").api;
+const { fetchMarkets } = require("../server").api;
 const createApiRoute = require("../lib/apiRoute");
 
-module.exports = createApiRoute(fetchMarketsSafe);
+module.exports = createApiRoute(fetchMarkets);

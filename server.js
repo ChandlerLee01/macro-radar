@@ -1159,169 +1159,7 @@ async function fetchMarketsSafe() {
     return await fetchMarkets();
   } catch (error) {
     console.error(`Safe market fallback: ${error.message}`);
-    try {
-      return await buildFallbackMarketPayload(error.message);
-    } catch (fallbackError) {
-      console.error(`Last-resort market fallback: ${fallbackError.message}`);
-      const now = new Date().toISOString();
-      const today = localDateKey();
-      const markets = [
-        {
-          id: "gold",
-          label: "Gold Price",
-          icon: "Au",
-          value: "$3,320.00",
-          change: "+0.45%",
-          rawChange: 0.45,
-          detail: `XAU/USD fallback, ${today}`,
-          accent: "#f4bf4f",
-          trend: [3305, 3292, 3312, 3338, 3320],
-          charts: {
-            "1D": [
-              { label: "Open", value: 3305, display: "$3,305.00" },
-              { label: "Low", value: 3292, display: "$3,292.00" },
-              { label: "Mid", value: 3312, display: "$3,312.00" },
-              { label: "High", value: 3338, display: "$3,338.00" },
-              { label: "Last", value: 3320, display: "$3,320.00" },
-            ],
-            "1W": [
-              { label: "D-6", value: 3305, display: "$3,305.00" },
-              { label: "D-5", value: 3304, display: "$3,304.00" },
-              { label: "D-4", value: 3317, display: "$3,317.00" },
-              { label: "D-3", value: 3292, display: "$3,292.00" },
-              { label: "D-2", value: 3322, display: "$3,322.00" },
-              { label: "D-1", value: 3338, display: "$3,338.00" },
-              { label: "Last", value: 3320, display: "$3,320.00" },
-            ],
-          },
-          down: false,
-        },
-        {
-          id: "spx",
-          label: "S&P 500",
-          icon: "SP",
-          value: "6,038",
-          change: "+0.30%",
-          rawChange: 0.3,
-          detail: `S&P 500 fallback, ${today}`,
-          accent: "#49d68f",
-          trend: [6020, 5998, 6029, 6062, 6038],
-          charts: {
-            "1D": [
-              { label: "Open", value: 6020, display: "6,020" },
-              { label: "Low", value: 5998, display: "5,998" },
-              { label: "Mid", value: 6029, display: "6,029" },
-              { label: "High", value: 6062, display: "6,062" },
-              { label: "Last", value: 6038, display: "6,038" },
-            ],
-            "1W": [
-              { label: "D-6", value: 6020, display: "6,020" },
-              { label: "D-5", value: 6017, display: "6,017" },
-              { label: "D-4", value: 6035, display: "6,035" },
-              { label: "D-3", value: 5998, display: "5,998" },
-              { label: "D-2", value: 6042, display: "6,042" },
-              { label: "D-1", value: 6062, display: "6,062" },
-              { label: "Last", value: 6038, display: "6,038" },
-            ],
-          },
-          down: false,
-        },
-        {
-          id: "dxy",
-          label: "US Dollar Index",
-          icon: "DXY",
-          value: "99.15",
-          change: "-0.17%",
-          rawChange: -0.17,
-          detail: `DXY fallback, ${today}`,
-          accent: "#67a7ff",
-          trend: [99.32, 99.05, 99.24, 99.45, 99.15],
-          charts: {
-            "1D": [
-              { label: "Open", value: 99.32, display: "99.32" },
-              { label: "Low", value: 99.05, display: "99.05" },
-              { label: "Mid", value: 99.24, display: "99.24" },
-              { label: "High", value: 99.45, display: "99.45" },
-              { label: "Last", value: 99.15, display: "99.15" },
-            ],
-            "1W": [
-              { label: "D-6", value: 99.32, display: "99.32" },
-              { label: "D-5", value: 99.16, display: "99.16" },
-              { label: "D-4", value: 99.28, display: "99.28" },
-              { label: "D-3", value: 99.05, display: "99.05" },
-              { label: "D-2", value: 99.32, display: "99.32" },
-              { label: "D-1", value: 99.45, display: "99.45" },
-              { label: "Last", value: 99.15, display: "99.15" },
-            ],
-          },
-          down: true,
-        },
-        {
-          id: "tenYear",
-          label: "US 10Y Treasury Yield",
-          icon: "10Y",
-          value: "4.47%",
-          change: "+2 bps",
-          rawChange: 0.02,
-          detail: `Treasury fallback, ${today}`,
-          accent: "#b18cff",
-          trend: [4.42, 4.43, 4.44, 4.45, 4.46, 4.45, 4.47],
-          charts: {
-            "1D": [
-              { label: "D-4", value: 4.44, display: "4.44%" },
-              { label: "D-3", value: 4.45, display: "4.45%" },
-              { label: "D-2", value: 4.46, display: "4.46%" },
-              { label: "D-1", value: 4.45, display: "4.45%" },
-              { label: "Last", value: 4.47, display: "4.47%" },
-            ],
-            "1W": [
-              { label: "D-6", value: 4.42, display: "4.42%" },
-              { label: "D-5", value: 4.43, display: "4.43%" },
-              { label: "D-4", value: 4.44, display: "4.44%" },
-              { label: "D-3", value: 4.45, display: "4.45%" },
-              { label: "D-2", value: 4.46, display: "4.46%" },
-              { label: "D-1", value: 4.45, display: "4.45%" },
-              { label: "Last", value: 4.47, display: "4.47%" },
-            ],
-          },
-          down: false,
-        },
-      ];
-      return {
-        updatedAt: now,
-        markets,
-        regime: {
-          label: "Neutral",
-          confidence: 45,
-          explanation: "Market data providers are unavailable, so Macro Radar is using a neutral fallback.",
-          inputs: {
-            spxMove: "N/A",
-            dxyMove: "N/A",
-            goldMove: "N/A",
-            tenYearMove: "N/A",
-          },
-          scores: [],
-        },
-        summary:
-          "Market data providers are temporarily unavailable. Macro Radar will retry automatically while preserving the dashboard response shape.",
-        summaryPoints: [
-          ["Status", "Using emergency fallback."],
-          ["Quotes", "Temporarily unavailable."],
-          ["Next", "Automatic retry scheduled."],
-        ],
-        summaryProvider: "local-fallback",
-        sources: ["Emergency market fallback"],
-        degraded: true,
-        providerStatus: {
-          marketData: "fallback",
-          stooq: "fallback",
-          treasury: "fallback",
-          history: "fallback",
-          sources: ["Emergency market fallback"],
-          errors: [error.message, fallbackError.message],
-        },
-      };
-    }
+    return buildFallbackMarketPayload(error.message);
   }
 }
 
@@ -1504,7 +1342,7 @@ async function fetchDailyBrief() {
     return briefCache;
   }
 
-  const [marketsPayload, newsPayload] = await Promise.all([fetchMarketsSafe(), fetchMacroNews()]);
+  const [marketsPayload, newsPayload] = await Promise.all([fetchMarkets(), fetchMacroNews()]);
   const brief = buildDailyBrief(marketsPayload, newsPayload);
   brief.file = path.relative(ROOT, await saveDailyBrief(brief));
   briefCache = brief;
@@ -1679,7 +1517,7 @@ async function saveAlerts(alerts, nextState) {
 }
 
 async function fetchMacroAlerts() {
-  const marketsPayload = await fetchMarketsSafe();
+  const marketsPayload = await fetchMarkets();
   const previousState = await readJsonFile(ALERT_STATE_FILE, {});
   const { alerts, nextState } = buildMacroAlerts(marketsPayload, previousState);
   const saved = await saveAlerts(alerts, nextState);
@@ -1700,7 +1538,7 @@ async function analyzeMacroQuestion(body = {}) {
     throw error;
   }
 
-  const [marketsPayload, newsPayload] = await Promise.all([fetchMarketsSafe(), fetchMacroNews()]);
+  const [marketsPayload, newsPayload] = await Promise.all([fetchMarkets(), fetchMacroNews()]);
   const context = buildAnalystContext(marketsPayload, newsPayload);
   const openAiAnalysis = await generateOpenAiAnalysis(question, context);
   return openAiAnalysis || generateLocalAnalysis(question, context);
@@ -1780,7 +1618,7 @@ async function handleRequest(request, response) {
   const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
   if (pathname === "/api/markets") {
-    await sendApiPayload(response, fetchMarketsSafe);
+    await sendApiPayload(response, fetchMarkets);
     return;
   }
 
@@ -1829,8 +1667,6 @@ module.exports = handleRequest;
 module.exports.handleRequest = handleRequest;
 module.exports.api = {
   fetchMarkets,
-  fetchMarketsSafe,
-  buildFallbackMarketPayload,
   fetchMacroNews,
   fetchDailyBrief,
   fetchTimeline,
