@@ -1342,7 +1342,7 @@ async function fetchDailyBrief() {
     return briefCache;
   }
 
-  const [marketsPayload, newsPayload] = await Promise.all([fetchMarkets(), fetchMacroNews()]);
+  const [marketsPayload, newsPayload] = await Promise.all([fetchMarketsSafe(), fetchMacroNews()]);
   const brief = buildDailyBrief(marketsPayload, newsPayload);
   brief.file = path.relative(ROOT, await saveDailyBrief(brief));
   briefCache = brief;
@@ -1517,7 +1517,7 @@ async function saveAlerts(alerts, nextState) {
 }
 
 async function fetchMacroAlerts() {
-  const marketsPayload = await fetchMarkets();
+  const marketsPayload = await fetchMarketsSafe();
   const previousState = await readJsonFile(ALERT_STATE_FILE, {});
   const { alerts, nextState } = buildMacroAlerts(marketsPayload, previousState);
   const saved = await saveAlerts(alerts, nextState);
@@ -1538,7 +1538,7 @@ async function analyzeMacroQuestion(body = {}) {
     throw error;
   }
 
-  const [marketsPayload, newsPayload] = await Promise.all([fetchMarkets(), fetchMacroNews()]);
+  const [marketsPayload, newsPayload] = await Promise.all([fetchMarketsSafe(), fetchMacroNews()]);
   const context = buildAnalystContext(marketsPayload, newsPayload);
   const openAiAnalysis = await generateOpenAiAnalysis(question, context);
   return openAiAnalysis || generateLocalAnalysis(question, context);
@@ -1618,7 +1618,7 @@ async function handleRequest(request, response) {
   const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
   if (pathname === "/api/markets") {
-    await sendApiPayload(response, fetchMarkets);
+    await sendApiPayload(response, fetchMarketsSafe);
     return;
   }
 
@@ -1667,6 +1667,7 @@ module.exports = handleRequest;
 module.exports.handleRequest = handleRequest;
 module.exports.api = {
   fetchMarkets,
+  fetchMarketsSafe,
   fetchMacroNews,
   fetchDailyBrief,
   fetchTimeline,
