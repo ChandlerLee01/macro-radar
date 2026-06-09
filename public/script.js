@@ -215,6 +215,112 @@ function renderList(selector, items) {
     .join("");
 }
 
+function analystList(items) {
+  return items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+}
+
+function renderAnalystLoading() {
+  document.querySelector("#analystProvider").textContent = "Generating";
+  document.querySelector("#analystStatus").textContent = "Reading live macro signals...";
+  document.querySelector("#analystResult").className = "analyst-result empty loading-card";
+  document.querySelector("#analystResult").innerHTML = `
+    <div>
+      <span class="result-kicker">Generating analysis</span>
+      <strong>Combining market moves, regime data, and macro headlines.</strong>
+    </div>
+  `;
+}
+
+function renderAnalystError(message) {
+  document.querySelector("#analystProvider").textContent = "Unavailable";
+  document.querySelector("#analystStatus").textContent = "Analysis could not be generated.";
+  document.querySelector("#analystResult").className = "analyst-result error";
+  document.querySelector("#analystResult").innerHTML = `
+    <div>
+      <span class="result-kicker">Error</span>
+      <strong>${escapeHtml(message)}</strong>
+      <p>Try again after the live data refresh completes.</p>
+    </div>
+  `;
+}
+
+function renderAnalystResult(analysis) {
+  document.querySelector("#analystProvider").textContent =
+    analysis.provider === "openai" ? "OpenAI" : "Local model";
+  document.querySelector("#analystStatus").textContent =
+    "For educational and research purposes only. Not financial advice.";
+  document.querySelector("#analystResult").className = "analyst-result";
+  document.querySelector("#analystResult").innerHTML = `
+    <div class="result-top">
+      <article class="view-card">
+        <span class="result-kicker">Overall View</span>
+        <strong>${escapeHtml(analysis.overallView)}</strong>
+        <p>${escapeHtml(analysis.explanation)}</p>
+      </article>
+      <article class="confidence-card">
+        <span class="result-kicker">Confidence</span>
+        <strong>${Number(analysis.confidence)}%</strong>
+      </article>
+    </div>
+    <div class="result-grid">
+      <article class="result-section">
+        <h3>Key Drivers</h3>
+        <ul>${analystList(analysis.keyDrivers)}</ul>
+      </article>
+      <article class="result-section">
+        <h3>Bullish Factors</h3>
+        <ul>${analystList(analysis.bullishFactors)}</ul>
+      </article>
+      <article class="result-section">
+        <h3>Bearish Factors</h3>
+        <ul>${analystList(analysis.bearishFactors)}</ul>
+      </article>
+      <article class="result-section">
+        <h3>Watch Next</h3>
+        <ul>${analystList(analysis.watchNext)}</ul>
+      </article>
+    </div>
+    <article class="signals-card">
+      <h3>Signals Used</h3>
+      <ul>
+        <li><span>Regime</span>${escapeHtml(analysis.signalsUsed.regime)}</li>
+        <li><span>S&P 500</span>${escapeHtml(analysis.signalsUsed.spx)}</li>
+        <li><span>Gold</span>${escapeHtml(analysis.signalsUsed.gold)}</li>
+        <li><span>DXY</span>${escapeHtml(analysis.signalsUsed.dxy)}</li>
+        <li><span>US10Y</span>${escapeHtml(analysis.signalsUsed.tenYear)}</li>
+      </ul>
+    </article>
+  `;
+}
+
+async function generateAnalysis(question) {
+  const submitButton = document.querySelector("#analystSubmit");
+  submitButton.disabled = true;
+  renderAnalystLoading();
+
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ question }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || `Analyze API returned ${response.status}`);
+    }
+
+    renderAnalystResult(payload);
+  } catch (error) {
+    renderAnalystError(error.message);
+    console.error(error);
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
 function renderBrief(brief) {
   document.querySelector("#briefStatus").textContent = `Saved ${brief.date}`;
   document.querySelector(
@@ -572,6 +678,25 @@ document.addEventListener("focusin", (event) => {
   if (!point || !card) return;
 
   updateChartReadout(card, Number(point.dataset.pointIndex));
+});
+
+document.querySelector("#analystForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const question = document.querySelector("#analystQuestion").value.trim();
+  if (!question) {
+    renderAnalystError("Enter a macro or market question first.");
+    return;
+  }
+
+  generateAnalysis(question);
+});
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-example-prompt]");
+  if (!button) return;
+
+  document.querySelector("#analystQuestion").value = button.dataset.examplePrompt;
+  document.querySelector("#analystQuestion").focus();
 });
 
 renderLoading();

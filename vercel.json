@@ -22,6 +22,10 @@
       "dest": "/api/timeline.js"
     },
     {
+      "src": "/api/analyze",
+      "dest": "/api/analyze.js"
+    },
+    {
       "src": "/styles.css",
       "dest": "/styles.css"
     },

@@ -57,7 +57,8 @@ p {
 }
 
 h1 {
-  margin-bottom: 0;
+  max-width: 860px;
+  margin-bottom: 16px;
   font-size: clamp(2.1rem, 5vw, 4.2rem);
   line-height: 0.96;
 }
@@ -89,6 +90,245 @@ h2 {
   border-radius: 50%;
   background: var(--green);
   box-shadow: 0 0 0 6px rgba(73, 214, 143, 0.14);
+}
+
+.hero-subtitle {
+  max-width: 760px;
+  margin-bottom: 10px;
+  color: #c8d5e6;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.hero-disclaimer {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.analyst-panel {
+  margin-bottom: 16px;
+  border: 1px solid rgba(103, 167, 255, 0.35);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(103, 167, 255, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(20, 30, 44, 0.98), rgba(13, 19, 29, 0.98));
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.28);
+  padding: 24px;
+}
+
+.analyst-heading {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.analyst-form {
+  display: grid;
+  gap: 14px;
+}
+
+.analyst-form textarea {
+  width: 100%;
+  min-height: 118px;
+  resize: vertical;
+  border: 1px solid rgba(143, 160, 181, 0.24);
+  border-radius: 8px;
+  background: rgba(5, 10, 17, 0.72);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  padding: 15px 16px;
+  outline: none;
+}
+
+.analyst-form textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(103, 167, 255, 0.14);
+}
+
+.prompt-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prompt-row button,
+.primary-button {
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.prompt-row button {
+  border: 1px solid rgba(143, 160, 181, 0.22);
+  background: rgba(255, 255, 255, 0.045);
+  color: #d5dfed;
+  padding: 9px 11px;
+  font-size: 0.78rem;
+}
+
+.prompt-row button:hover,
+.prompt-row button:focus {
+  border-color: rgba(103, 167, 255, 0.65);
+  color: var(--text);
+}
+
+.analyst-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.primary-button {
+  min-height: 44px;
+  background: var(--blue);
+  color: #071018;
+  padding: 0 18px;
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+#analystStatus {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.analyst-result {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  border: 1px solid rgba(143, 160, 181, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 18px;
+}
+
+.analyst-result.empty {
+  min-height: 96px;
+  align-items: center;
+}
+
+.analyst-result.error {
+  border-color: rgba(255, 111, 125, 0.42);
+  background: rgba(255, 111, 125, 0.07);
+}
+
+.result-kicker {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.result-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 12px;
+}
+
+.view-card,
+.confidence-card,
+.result-section,
+.signals-card {
+  border: 1px solid rgba(143, 160, 181, 0.16);
+  border-radius: 6px;
+  background: rgba(5, 10, 17, 0.34);
+  padding: 14px;
+}
+
+.view-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.55rem;
+  line-height: 1.05;
+}
+
+.view-card p,
+.result-section p {
+  margin: 8px 0 0;
+  color: #c8d5e6;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.confidence-card {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+}
+
+.confidence-card strong {
+  color: var(--gold);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.result-section h3,
+.signals-card h3 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.result-section ul,
+.signals-card ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.signals-card ul {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding-left: 0;
+  list-style: none;
+}
+
+.signals-card li {
+  min-width: 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 9px;
+}
+
+.signals-card span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .metrics-grid {
@@ -909,10 +1149,15 @@ h2 {
   .metrics-grid,
   .summary-layout,
   .regime-body,
+  .result-grid,
   .brief-grid,
   .timeline-item,
   .timeline-columns,
   .charts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signals-card ul {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -937,6 +1182,9 @@ h2 {
   .summary-points,
   .regime-body,
   .regime-inputs,
+  .result-top,
+  .result-grid,
+  .signals-card ul,
   .brief-theme,
   .brief-grid,
   .brief-interpretation,
@@ -957,6 +1205,15 @@ h2 {
 
   .chart-stage {
     height: 170px;
+  }
+
+  .analyst-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #analystStatus {
+    text-align: left;
   }
 
   .alert-item,

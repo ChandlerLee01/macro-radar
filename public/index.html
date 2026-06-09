@@ -17,13 +17,61 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Macro Radar</p>
-          <h1>Market Dashboard</h1>
+          <h1>AI-powered macroeconomic intelligence platform</h1>
+          <p class="hero-subtitle">
+            Monitor market regimes, track macro signals, and generate investment-oriented
+            research from live market data and news.
+          </p>
+          <p class="hero-disclaimer">For educational and research purposes only. Not financial advice.</p>
         </div>
         <div class="status-pill" id="refreshStatus">
           <span class="pulse"></span>
           Connecting
         </div>
       </header>
+
+      <section class="analyst-panel" aria-labelledby="analystHeading">
+        <div class="section-heading analyst-heading">
+          <div>
+            <p class="eyebrow">AI Macro Analyst</p>
+            <h2 id="analystHeading">Ask the macro tape</h2>
+          </div>
+          <span class="tag" id="analystProvider">Research mode</span>
+        </div>
+        <form class="analyst-form" id="analystForm">
+          <label class="sr-only" for="analystQuestion">Macro or market question</label>
+          <textarea
+            id="analystQuestion"
+            name="question"
+            rows="4"
+            placeholder="Ask a macro or market question..."
+          ></textarea>
+          <div class="prompt-row" aria-label="Example macro questions">
+            <button type="button" data-example-prompt="Is gold bullish over the next 3 months?">
+              Is gold bullish over the next 3 months?
+            </button>
+            <button type="button" data-example-prompt="What does a stronger dollar mean for equities?">
+              What does a stronger dollar mean for equities?
+            </button>
+            <button type="button" data-example-prompt="How should investors read rising Treasury yields?">
+              How should investors read rising Treasury yields?
+            </button>
+            <button type="button" data-example-prompt="What is today’s macro risk regime?">
+              What is today’s macro risk regime?
+            </button>
+          </div>
+          <div class="analyst-actions">
+            <button class="primary-button" id="analystSubmit" type="submit">Generate Analysis</button>
+            <span id="analystStatus">Uses live market data, regime signals, and macro news.</span>
+          </div>
+        </form>
+        <div class="analyst-result empty" id="analystResult">
+          <div>
+            <span class="result-kicker">Waiting for question</span>
+            <strong>Analysis will appear here.</strong>
+          </div>
+        </div>
+      </section>
 
       <section class="metrics-grid" id="metricsGrid" aria-label="Market indicators"></section>
 

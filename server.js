@@ -473,6 +473,259 @@ function parseSummaryJson(text) {
   return JSON.parse(clean);
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function sanitizeQuestion(question) {
+  return String(question || "").replace(/\s+/g, " ").trim().slice(0, 600);
+}
+
+function normalizeAnalystResponse(question, generated, context, provider) {
+  const views = new Set(["Bullish", "Neutral", "Bearish", "Mixed"]);
+  const list = (items, fallback) =>
+    (Array.isArray(items) ? items : fallback)
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .slice(0, 5);
+
+  return {
+    question,
+    overallView: views.has(generated.overallView) ? generated.overallView : "Mixed",
+    confidence: clamp(Math.round(Number(generated.confidence) || context.regime.confidence), 0, 100),
+    keyDrivers: list(generated.keyDrivers, context.defaultDrivers),
+    bullishFactors: list(generated.bullishFactors, context.defaultBullish),
+    bearishFactors: list(generated.bearishFactors, context.defaultBearish),
+    watchNext: list(generated.watchNext, context.defaultWatchNext),
+    explanation:
+      typeof generated.explanation === "string" && generated.explanation.trim()
+        ? generated.explanation.trim()
+        : context.defaultExplanation,
+    signalsUsed: {
+      regime: context.signalsUsed.regime,
+      spx: context.signalsUsed.spx,
+      gold: context.signalsUsed.gold,
+      dxy: context.signalsUsed.dxy,
+      tenYear: context.signalsUsed.tenYear,
+    },
+    provider,
+  };
+}
+
+function buildAnalystContext(marketsPayload, newsPayload) {
+  const markets = marketsPayload.markets;
+  const regime = marketsPayload.regime;
+  const gold = marketById(markets, "gold");
+  const spx = marketById(markets, "spx");
+  const dxy = marketById(markets, "dxy");
+  const tenYear = marketById(markets, "tenYear");
+  const topHeadlines = newsPayload.headlines.slice(0, 6);
+  const headlineTopics = [
+    ...new Set(topHeadlines.flatMap((headline) => headline.topics || [])),
+  ].slice(0, 6);
+
+  const defaultDrivers = [
+    `Regime engine: ${regime.label} at ${regime.confidence}% confidence`,
+    `S&P 500: ${spx.change} at ${spx.value}`,
+    `DXY: ${dxy.change} at ${dxy.value}`,
+    `Gold: ${gold.change} at ${gold.value}`,
+    `US10Y: ${tenYear.change} to ${tenYear.value}`,
+  ];
+  const defaultBullish = [
+    spx.rawChange >= 0 ? "Positive S&P 500 momentum supports risk appetite" : null,
+    dxy.rawChange < 0 ? "A softer dollar can ease financial conditions for risk assets" : null,
+    tenYear.rawChange <= 0 ? "Stable or lower Treasury yields reduce valuation pressure" : null,
+    ["Risk On", "Growth Optimism"].includes(regime.label)
+      ? `${regime.label} regime points to constructive cross-asset tone`
+      : null,
+  ].filter(Boolean);
+  const defaultBearish = [
+    spx.rawChange < 0 ? "Equity weakness signals fragile risk sentiment" : null,
+    dxy.rawChange > 0 ? "Dollar strength can tighten global liquidity conditions" : null,
+    tenYear.rawChange > 0 ? "Rising Treasury yields can pressure duration-sensitive assets" : null,
+    gold.rawChange > 0.35 ? "Firm gold suggests investors are still paying for hedges" : null,
+    ["Risk Off", "Defensive Positioning", "Rate Shock", "Inflation Fear"].includes(regime.label)
+      ? `${regime.label} regime keeps macro risk elevated`
+      : null,
+  ].filter(Boolean);
+
+  return {
+    markets,
+    regime,
+    headlineTopics,
+    headlines: topHeadlines.map((headline) => ({
+      title: headline.title,
+      source: headline.source,
+      topics: headline.topics,
+    })),
+    signalsUsed: {
+      regime: `${regime.label} (${regime.confidence}% confidence)`,
+      spx: `${spx.change} at ${spx.value}`,
+      gold: `${gold.change} at ${gold.value}`,
+      dxy: `${dxy.change} at ${dxy.value}`,
+      tenYear: `${tenYear.change} to ${tenYear.value}`,
+    },
+    rawSignals: {
+      spxMove: spx.rawChange,
+      goldMove: gold.rawChange,
+      dxyMove: dxy.rawChange,
+      tenYearMove: tenYear.rawChange,
+    },
+    defaultDrivers,
+    defaultBullish: defaultBullish.length ? defaultBullish : ["No strong bullish signal is dominant yet"],
+    defaultBearish: defaultBearish.length ? defaultBearish : ["No strong bearish signal is dominant yet"],
+    defaultWatchNext: [
+      "Whether Treasury yields extend or fade the latest move",
+      "Dollar follow-through as a cross-asset liquidity signal",
+      "Gold confirmation of hedge demand",
+      "Fed, inflation, and growth headlines in the next news cycle",
+    ],
+    defaultExplanation: `${regime.label} is the current macro regime. The research read is based on S&P 500 ${spx.change}, DXY ${dxy.change}, gold ${gold.change}, US10Y ${tenYear.change}, and headlines focused on ${headlineTopics.join(", ") || "macro policy and market pricing"}.`,
+  };
+}
+
+function inferQuestionAsset(question) {
+  const normalized = question.toLowerCase();
+  if (/gold|xau|bullion/.test(normalized)) return "gold";
+  if (/dollar|dxy|greenback/.test(normalized)) return "dollar";
+  if (/yield|treasury|rates|10y|bond/.test(normalized)) return "rates";
+  if (/equity|equities|stock|stocks|s&p|spx|nasdaq/.test(normalized)) return "equities";
+  if (/regime|risk/.test(normalized)) return "regime";
+  return "macro";
+}
+
+function localOverallView(question, context) {
+  const asset = inferQuestionAsset(question);
+  const { spxMove, goldMove, dxyMove, tenYearMove } = context.rawSignals;
+  const riskPositive = spxMove >= 0 && dxyMove <= 0.1 && tenYearMove <= 0.03;
+  const riskNegative = spxMove < 0 || dxyMove > 0.15 || tenYearMove > 0.04;
+
+  if (asset === "gold") {
+    if (goldMove > 0.25 && (dxyMove >= 0 || context.regime.label.includes("Defensive"))) {
+      return "Bullish";
+    }
+    if (goldMove < -0.25 && riskPositive) return "Bearish";
+    return "Mixed";
+  }
+
+  if (asset === "dollar") {
+    if (dxyMove > 0.12) return "Bullish";
+    if (dxyMove < -0.12) return "Bearish";
+    return "Neutral";
+  }
+
+  if (asset === "rates") {
+    if (tenYearMove > 0.03) return "Bullish";
+    if (tenYearMove < -0.03) return "Bearish";
+    return "Neutral";
+  }
+
+  if (asset === "equities") {
+    if (riskPositive) return "Bullish";
+    if (riskNegative) return "Bearish";
+    return "Mixed";
+  }
+
+  if (["Risk On", "Growth Optimism"].includes(context.regime.label)) return "Bullish";
+  if (["Risk Off", "Rate Shock"].includes(context.regime.label)) return "Bearish";
+  return context.regime.label === "Defensive Positioning" ? "Mixed" : "Neutral";
+}
+
+function generateLocalAnalysis(question, context) {
+  const overallView = localOverallView(question, context);
+  const confidence = clamp(
+    Math.round(context.regime.confidence - (overallView === "Mixed" ? 12 : 4)),
+    45,
+    88,
+  );
+
+  return normalizeAnalystResponse(
+    question,
+    {
+      overallView,
+      confidence,
+      keyDrivers: context.defaultDrivers,
+      bullishFactors: context.defaultBullish,
+      bearishFactors: context.defaultBearish,
+      watchNext: context.defaultWatchNext,
+      explanation: context.defaultExplanation,
+    },
+    context,
+    "local",
+  );
+}
+
+async function generateOpenAiAnalysis(question, context) {
+  if (
+    !process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_API_KEY === "your-openai-api-key" ||
+    process.env.OPENAI_API_KEY === "sk-your-api-key" ||
+    openAiDisabled
+  ) {
+    return null;
+  }
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input: [
+          {
+            role: "system",
+            content:
+              "You are an AI macro markets analyst for a product dashboard. Return valid JSON only. Frame the output as market research and education, not financial advice. Use only the provided internal signals and headline topics. Be concise and product-ready.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              question,
+              requiredSchema: {
+                overallView: "Bullish | Neutral | Bearish | Mixed",
+                confidence: "integer 0-100",
+                keyDrivers: "array of 3-5 concise strings",
+                bullishFactors: "array of 2-4 concise strings",
+                bearishFactors: "array of 2-4 concise strings",
+                watchNext: "array of 2-4 concise strings",
+                explanation:
+                  "one concise paragraph, no financial advice, cite internal signals used",
+              },
+              internalSignals: {
+                regime: context.signalsUsed.regime,
+                spx: context.signalsUsed.spx,
+                gold: context.signalsUsed.gold,
+                dxy: context.signalsUsed.dxy,
+                tenYear: context.signalsUsed.tenYear,
+                headlineTopics: context.headlineTopics,
+                headlines: context.headlines,
+              },
+            }),
+          },
+        ],
+        max_output_tokens: 700,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        openAiDisabled = true;
+      }
+      throw new Error(`OpenAI returned ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const generated = parseSummaryJson(extractResponseText(payload));
+    return normalizeAnalystResponse(question, generated, context, "openai");
+  } catch (error) {
+    console.error(`OpenAI analyst fallback: ${error.message}`);
+    return null;
+  }
+}
+
 async function generateAiSummary(markets) {
   if (
     !process.env.OPENAI_API_KEY ||
@@ -555,12 +808,119 @@ async function generateAiSummary(markets) {
   }
 }
 
+async function buildFallbackMarketsPayload(reason) {
+  const today = localDateKey();
+  const fallbackQuotes = {
+    gold: { Open: "3305", High: "3338", Low: "3292", Close: "3320", Date: today, Time: "fallback" },
+    spx: { Open: "6020", High: "6062", Low: "5998", Close: "6038", Date: today, Time: "fallback" },
+    dxy: { Open: "99.32", High: "99.45", Low: "99.05", Close: "99.15", Date: today, Time: "fallback" },
+  };
+  const previousTenYear = 4.45;
+  const latestTenYear = 4.47;
+  const tenYearChange = latestTenYear - previousTenYear;
+  const goldMove = pctChange(num(fallbackQuotes.gold.Close), num(fallbackQuotes.gold.Open));
+  const spxMove = pctChange(num(fallbackQuotes.spx.Close), num(fallbackQuotes.spx.Open));
+  const dxyMove = pctChange(num(fallbackQuotes.dxy.Close), num(fallbackQuotes.dxy.Open));
+  const tenYearBps = tenYearChange * 100;
+  const tenYearChart = [4.42, 4.43, 4.44, 4.45, 4.46, 4.45, latestTenYear].map(
+    (value, index) => ({
+      label: index === 6 ? today.slice(5) : `D-${6 - index}`,
+      value,
+      display: `${value.toFixed(2)}%`,
+    }),
+  );
+  const markets = [
+    {
+      id: "gold",
+      label: "Gold Price",
+      icon: "Au",
+      value: currency(num(fallbackQuotes.gold.Close)),
+      change: changeText(goldMove),
+      rawChange: goldMove,
+      detail: `XAU/USD spot fallback, ${today}`,
+      accent: "#f4bf4f",
+      trend: marketTrend(fallbackQuotes.gold),
+      charts: {
+        "1D": intradayChart(fallbackQuotes.gold, currency),
+        "1W": fallbackWeeklyChart(fallbackQuotes.gold, currency),
+      },
+      down: goldMove < 0,
+    },
+    {
+      id: "spx",
+      label: "S&P 500",
+      icon: "SP",
+      value: indexValue(num(fallbackQuotes.spx.Close)),
+      change: changeText(spxMove),
+      rawChange: spxMove,
+      detail: `S&P 500 fallback, ${today}`,
+      accent: "#49d68f",
+      trend: marketTrend(fallbackQuotes.spx),
+      charts: {
+        "1D": intradayChart(fallbackQuotes.spx, indexValue),
+        "1W": fallbackWeeklyChart(fallbackQuotes.spx, indexValue),
+      },
+      down: spxMove < 0,
+    },
+    {
+      id: "dxy",
+      label: "US Dollar Index",
+      icon: "DXY",
+      value: indexValue(num(fallbackQuotes.dxy.Close)),
+      change: changeText(dxyMove),
+      rawChange: dxyMove,
+      detail: `DXY fallback, ${today}`,
+      accent: "#67a7ff",
+      trend: marketTrend(fallbackQuotes.dxy),
+      charts: {
+        "1D": intradayChart(fallbackQuotes.dxy, indexValue),
+        "1W": fallbackWeeklyChart(fallbackQuotes.dxy, indexValue),
+      },
+      down: dxyMove < 0,
+    },
+    {
+      id: "tenYear",
+      label: "US 10Y Treasury Yield",
+      icon: "10Y",
+      value: `${latestTenYear.toFixed(2)}%`,
+      change: formatBps(tenYearBps),
+      rawChange: tenYearChange,
+      detail: `Treasury fallback, ${today}`,
+      accent: "#b18cff",
+      trend: tenYearChart.map((entry) => entry.value),
+      charts: {
+        "1D": tenYearChart.slice(-5),
+        "1W": tenYearChart,
+      },
+      down: tenYearChange < 0,
+    },
+  ];
+  const aiSummary = await generateAiSummary(markets);
+  const regime = buildMarketRegime({
+    spxMove,
+    dxyMove,
+    goldMove,
+    tenYearBps,
+  });
+
+  return {
+    updatedAt: new Date().toISOString(),
+    markets,
+    regime,
+    ...aiSummary,
+    sources: ["Local degraded market fallback"],
+    degraded: true,
+    error: reason,
+  };
+}
+
 async function fetchMarkets() {
   const now = Date.now();
   if (cache && now - cacheTime < 30_000) return cache;
   if (marketFetchPromise) return marketFetchPromise;
 
   marketFetchPromise = (async () => {
+    try {
     const [stooqText, treasuryText, goldHistoryText, spxHistoryText, dxyHistoryText] =
       await Promise.all([
         fetchText(STOOQ_URL, "Stooq"),
@@ -683,6 +1043,12 @@ async function fetchMarkets() {
   };
   cacheTime = now;
   return cache;
+    } catch (error) {
+      console.error(`Market data fallback: ${error.message}`);
+      cache = await buildFallbackMarketsPayload(error.message);
+      cacheTime = now;
+      return cache;
+    }
   })();
 
   try {
@@ -1054,6 +1420,54 @@ async function fetchMacroAlerts() {
   };
 }
 
+async function analyzeMacroQuestion(body = {}) {
+  const question = sanitizeQuestion(body.question);
+  if (!question) {
+    const error = new Error("Question is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const [marketsPayload, newsPayload] = await Promise.all([fetchMarkets(), fetchMacroNews()]);
+  const context = buildAnalystContext(marketsPayload, newsPayload);
+  const openAiAnalysis = await generateOpenAiAnalysis(question, context);
+  return openAiAnalysis || generateLocalAnalysis(question, context);
+}
+
+function sendJson(response, statusCode, payload) {
+  response.writeHead(statusCode, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(JSON.stringify(payload));
+}
+
+async function readRequestJson(request) {
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(chunk);
+  }
+
+  const text = Buffer.concat(chunks).toString("utf8").trim();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const error = new Error("Request body must be valid JSON");
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+async function sendApiPayload(response, fetchPayload) {
+  try {
+    sendJson(response, 200, await fetchPayload());
+  } catch (error) {
+    sendJson(response, error.statusCode || 502, { error: error.message });
+  }
+}
+
 async function serveStatic(request, response) {
   const url = new URL(request.url, `http://${request.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
@@ -1094,77 +1508,37 @@ async function handleRequest(request, response) {
   const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
   if (pathname === "/api/markets") {
-    try {
-      const payload = await fetchMarkets();
-      response.writeHead(200, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      });
-      response.end(JSON.stringify(payload));
-    } catch (error) {
-      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-      response.end(JSON.stringify({ error: error.message }));
-    }
+    await sendApiPayload(response, fetchMarkets);
     return;
   }
 
   if (pathname === "/api/news") {
-    try {
-      const payload = await fetchMacroNews();
-      response.writeHead(200, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      });
-      response.end(JSON.stringify(payload));
-    } catch (error) {
-      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-      response.end(JSON.stringify({ error: error.message }));
-    }
+    await sendApiPayload(response, fetchMacroNews);
     return;
   }
 
   if (pathname === "/api/brief") {
-    try {
-      const payload = await fetchDailyBrief();
-      response.writeHead(200, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      });
-      response.end(JSON.stringify(payload));
-    } catch (error) {
-      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-      response.end(JSON.stringify({ error: error.message }));
-    }
+    await sendApiPayload(response, fetchDailyBrief);
     return;
   }
 
   if (pathname === "/api/timeline") {
-    try {
-      const payload = await fetchTimeline();
-      response.writeHead(200, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      });
-      response.end(JSON.stringify(payload));
-    } catch (error) {
-      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-      response.end(JSON.stringify({ error: error.message }));
-    }
+    await sendApiPayload(response, fetchTimeline);
     return;
   }
 
   if (pathname === "/api/alerts") {
-    try {
-      const payload = await fetchMacroAlerts();
-      response.writeHead(200, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      });
-      response.end(JSON.stringify(payload));
-    } catch (error) {
-      response.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-      response.end(JSON.stringify({ error: error.message }));
+    await sendApiPayload(response, fetchMacroAlerts);
+    return;
+  }
+
+  if (pathname === "/api/analyze") {
+    if (request.method !== "POST") {
+      sendJson(response, 405, { error: "Method not allowed" });
+      return;
     }
+
+    await sendApiPayload(response, async () => analyzeMacroQuestion(await readRequestJson(request)));
     return;
   }
 
@@ -1187,4 +1561,5 @@ module.exports.api = {
   fetchDailyBrief,
   fetchTimeline,
   fetchMacroAlerts,
+  analyzeMacroQuestion,
 };
