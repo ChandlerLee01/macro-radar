@@ -99,6 +99,45 @@ function parseCsv(csv) {
   );
 }
 
+function looksBlockedHtml(text = "") {
+  return /<html|<!doctype|requires javascript|__verify|page you requested does not exist|has been moved/i.test(
+    text,
+  );
+}
+
+function validateStooqQuotes(csv) {
+  if (!csv || looksBlockedHtml(csv)) {
+    throw new Error("Stooq returned a blocked or non-CSV response");
+  }
+
+  const rows = parseCsv(csv);
+  const quotes = Object.fromEntries(rows.map((row) => [String(row.Symbol || "").toUpperCase(), row]));
+  const required = ["XAUUSD", "^SPX", "DX.F"];
+  const missing = required.filter((symbol) => {
+    const row = quotes[symbol];
+    return !row || !Number.isFinite(num(row.Open)) || !Number.isFinite(num(row.Close));
+  });
+
+  if (missing.length) {
+    throw new Error(`Stooq CSV missing required quotes: ${missing.join(", ")}`);
+  }
+
+  return quotes;
+}
+
+function validateTreasuryEntries(xml) {
+  if (!xml || looksBlockedHtml(xml)) {
+    throw new Error("Treasury returned a blocked or non-XML response");
+  }
+
+  const entries = parseTreasuryXml(xml);
+  if (entries.length < 2) {
+    throw new Error("Treasury returned incomplete yield data");
+  }
+
+  return entries;
+}
+
 async function fetchText(url, label, options = {}) {
   const response = await fetch(url, options);
   if (!response.ok) throw new Error(`${label} returned ${response.status}`);
@@ -435,6 +474,43 @@ function parseNewsRss(xml, feedTopic) {
     })
     .filter((item) => item.title && item.link && isMacroHeadline(item))
     .slice(0, 3);
+}
+
+function buildFallbackNews(reason) {
+  const now = new Date().toISOString();
+  const topics = NEWS_TOPICS;
+  const headlines = [
+    {
+      title: "Markets weigh Federal Reserve path, inflation data, and Treasury yield moves",
+      source: "Macro Radar fallback",
+      link: "https://news.google.com/search?q=Federal%20Reserve%20inflation%20Treasury%20yields%20markets",
+      publishedAt: now,
+      topics: ["Federal Reserve", "Inflation", "Treasury Yields"],
+    },
+    {
+      title: "Dollar and gold remain key cross-asset signals as investors monitor risk appetite",
+      source: "Macro Radar fallback",
+      link: "https://news.google.com/search?q=US%20dollar%20gold%20markets%20risk%20appetite",
+      publishedAt: now,
+      topics: ["US Dollar", "Gold"],
+    },
+    {
+      title: "S&P 500 traders watch rates and macro headlines for confirmation of market regime",
+      source: "Macro Radar fallback",
+      link: "https://news.google.com/search?q=S%26P%20500%20Treasury%20yields%20macro%20headlines",
+      publishedAt: now,
+      topics: ["S&P 500", "Treasury Yields"],
+    },
+  ];
+
+  return {
+    updatedAt: now,
+    queryTopics: topics,
+    headlines,
+    source: "Local degraded news fallback",
+    degraded: true,
+    error: reason,
+  };
 }
 
 function buildSummary(markets) {
@@ -808,146 +884,27 @@ async function generateAiSummary(markets) {
   }
 }
 
-async function buildFallbackMarketsPayload(reason) {
+function fallbackQuoteRows() {
   const today = localDateKey();
-  const fallbackQuotes = {
+  return {
     gold: { Open: "3305", High: "3338", Low: "3292", Close: "3320", Date: today, Time: "fallback" },
     spx: { Open: "6020", High: "6062", Low: "5998", Close: "6038", Date: today, Time: "fallback" },
     dxy: { Open: "99.32", High: "99.45", Low: "99.05", Close: "99.15", Date: today, Time: "fallback" },
   };
-  const previousTenYear = 4.45;
-  const latestTenYear = 4.47;
-  const tenYearChange = latestTenYear - previousTenYear;
-  const goldMove = pctChange(num(fallbackQuotes.gold.Close), num(fallbackQuotes.gold.Open));
-  const spxMove = pctChange(num(fallbackQuotes.spx.Close), num(fallbackQuotes.spx.Open));
-  const dxyMove = pctChange(num(fallbackQuotes.dxy.Close), num(fallbackQuotes.dxy.Open));
-  const tenYearBps = tenYearChange * 100;
-  const tenYearChart = [4.42, 4.43, 4.44, 4.45, 4.46, 4.45, latestTenYear].map(
-    (value, index) => ({
-      label: index === 6 ? today.slice(5) : `D-${6 - index}`,
-      value,
-      display: `${value.toFixed(2)}%`,
-    }),
-  );
-  const markets = [
-    {
-      id: "gold",
-      label: "Gold Price",
-      icon: "Au",
-      value: currency(num(fallbackQuotes.gold.Close)),
-      change: changeText(goldMove),
-      rawChange: goldMove,
-      detail: `XAU/USD spot fallback, ${today}`,
-      accent: "#f4bf4f",
-      trend: marketTrend(fallbackQuotes.gold),
-      charts: {
-        "1D": intradayChart(fallbackQuotes.gold, currency),
-        "1W": fallbackWeeklyChart(fallbackQuotes.gold, currency),
-      },
-      down: goldMove < 0,
-    },
-    {
-      id: "spx",
-      label: "S&P 500",
-      icon: "SP",
-      value: indexValue(num(fallbackQuotes.spx.Close)),
-      change: changeText(spxMove),
-      rawChange: spxMove,
-      detail: `S&P 500 fallback, ${today}`,
-      accent: "#49d68f",
-      trend: marketTrend(fallbackQuotes.spx),
-      charts: {
-        "1D": intradayChart(fallbackQuotes.spx, indexValue),
-        "1W": fallbackWeeklyChart(fallbackQuotes.spx, indexValue),
-      },
-      down: spxMove < 0,
-    },
-    {
-      id: "dxy",
-      label: "US Dollar Index",
-      icon: "DXY",
-      value: indexValue(num(fallbackQuotes.dxy.Close)),
-      change: changeText(dxyMove),
-      rawChange: dxyMove,
-      detail: `DXY fallback, ${today}`,
-      accent: "#67a7ff",
-      trend: marketTrend(fallbackQuotes.dxy),
-      charts: {
-        "1D": intradayChart(fallbackQuotes.dxy, indexValue),
-        "1W": fallbackWeeklyChart(fallbackQuotes.dxy, indexValue),
-      },
-      down: dxyMove < 0,
-    },
-    {
-      id: "tenYear",
-      label: "US 10Y Treasury Yield",
-      icon: "10Y",
-      value: `${latestTenYear.toFixed(2)}%`,
-      change: formatBps(tenYearBps),
-      rawChange: tenYearChange,
-      detail: `Treasury fallback, ${today}`,
-      accent: "#b18cff",
-      trend: tenYearChart.map((entry) => entry.value),
-      charts: {
-        "1D": tenYearChart.slice(-5),
-        "1W": tenYearChart,
-      },
-      down: tenYearChange < 0,
-    },
-  ];
-  const aiSummary = await generateAiSummary(markets);
-  const regime = buildMarketRegime({
-    spxMove,
-    dxyMove,
-    goldMove,
-    tenYearBps,
-  });
-
-  return {
-    updatedAt: new Date().toISOString(),
-    markets,
-    regime,
-    ...aiSummary,
-    sources: ["Local degraded market fallback"],
-    degraded: true,
-    error: reason,
-  };
 }
 
-async function fetchMarkets() {
-  const now = Date.now();
-  if (cache && now - cacheTime < 30_000) return cache;
-  if (marketFetchPromise) return marketFetchPromise;
+function fallbackTreasuryEntries() {
+  return [4.42, 4.43, 4.44, 4.45, 4.46, 4.45, 4.47].map((tenYear, index) => ({
+    date: localDateKey(new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000)),
+    tenYear,
+  }));
+}
 
-  marketFetchPromise = (async () => {
-    try {
-    const [stooqText, treasuryText, goldHistoryText, spxHistoryText, dxyHistoryText] =
-      await Promise.all([
-        fetchText(STOOQ_URL, "Stooq"),
-        fetchText(TREASURY_URL, "Treasury"),
-        fetchOptionalText(STOOQ_HISTORY_URLS.gold, "Gold history"),
-        fetchOptionalText(STOOQ_HISTORY_URLS.spx, "S&P history"),
-        fetchOptionalText(STOOQ_HISTORY_URLS.dxy, "DXY history"),
-      ]);
-
-  const quotes = Object.fromEntries(
-    parseCsv(stooqText).map((row) => [row.Symbol.toUpperCase(), row]),
-  );
-  const treasury = parseTreasuryXml(treasuryText);
-  const history = {
-    gold: parseCsv(goldHistoryText),
-    spx: parseCsv(spxHistoryText),
-    dxy: parseCsv(dxyHistoryText),
-  };
+function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
   const latestYield = treasury.at(-1);
   const previousYield = treasury.at(-2);
-
-  const gold = quotes.XAUUSD;
-  const spx = quotes["^SPX"];
-  const dxy = quotes["DX.F"];
-
   if (!gold || !spx || !dxy || !latestYield || !previousYield) {
-    throw new Error("One or more market data sources returned incomplete data");
+    throw new Error("Market input data is incomplete");
   }
 
   const tenYearChange = latestYield.tenYear - previousYield.tenYear;
@@ -1025,8 +982,6 @@ async function fetchMarkets() {
       down: tenYearChange < 0,
     },
   ];
-
-  const aiSummary = await generateAiSummary(markets);
   const regime = buildMarketRegime({
     spxMove,
     dxyMove,
@@ -1034,21 +989,142 @@ async function fetchMarkets() {
     tenYearBps,
   });
 
-  cache = {
-    updatedAt: new Date().toISOString(),
+  return {
     markets,
     regime,
-    ...aiSummary,
-    sources: ["Stooq CSV", "U.S. Treasury yield curve XML", "OpenAI Responses API"],
+    moves: {
+      spxMove,
+      dxyMove,
+      goldMove,
+      tenYearBps,
+    },
   };
-  cacheTime = now;
-  return cache;
+}
+
+function parseOptionalHistory(text, label, errors) {
+  if (!text || looksBlockedHtml(text)) {
+    errors.push(`${label} unavailable`);
+    return [];
+  }
+
+  const rows = parseCsv(text).filter((row) => row.Date && Number.isFinite(num(row.Close)));
+  if (!rows.length) {
+    errors.push(`${label} returned no usable rows`);
+  }
+  return rows;
+}
+
+async function buildMarketPayload({ quotes, treasury, history, providerStatus }) {
+  const built = buildMarketsFromInputs({
+    gold: quotes.gold,
+    spx: quotes.spx,
+    dxy: quotes.dxy,
+    treasury,
+    history,
+  });
+  const aiSummary = providerStatus.marketData === "fallback"
+    ? { ...buildSummary(built.markets), summaryProvider: "local-fallback" }
+    : await generateAiSummary(built.markets);
+
+  return {
+    updatedAt: new Date().toISOString(),
+    markets: built.markets,
+    regime: built.regime,
+    ...aiSummary,
+    sources: providerStatus.sources,
+    degraded: providerStatus.marketData === "fallback" || providerStatus.errors.length > 0,
+    providerStatus,
+  };
+}
+
+async function fetchMarkets() {
+  const now = Date.now();
+  if (cache && now - cacheTime < 30_000) return cache;
+  if (marketFetchPromise) return marketFetchPromise;
+
+  marketFetchPromise = (async () => {
+    const errors = [];
+    const forceFallback = process.env.MACRO_RADAR_FORCE_STOOQ_FAILURE === "1";
+    const [stooqResult, treasuryResult, goldHistoryResult, spxHistoryResult, dxyHistoryResult] =
+      await Promise.allSettled([
+        forceFallback
+          ? Promise.reject(new Error("Forced Stooq failure for local verification"))
+          : fetchText(STOOQ_URL, "Stooq"),
+        fetchText(TREASURY_URL, "Treasury"),
+        fetchText(STOOQ_HISTORY_URLS.gold, "Gold history"),
+        fetchText(STOOQ_HISTORY_URLS.spx, "S&P history"),
+        fetchText(STOOQ_HISTORY_URLS.dxy, "DXY history"),
+      ]);
+
+    let quoteRows = fallbackQuoteRows();
+    let marketData = "live";
+    let stooqStatus = "live";
+    try {
+      if (stooqResult.status !== "fulfilled") throw stooqResult.reason;
+      const stooqQuotes = validateStooqQuotes(stooqResult.value);
+      quoteRows = {
+        gold: stooqQuotes.XAUUSD,
+        spx: stooqQuotes["^SPX"],
+        dxy: stooqQuotes["DX.F"],
+      };
     } catch (error) {
-      console.error(`Market data fallback: ${error.message}`);
-      cache = await buildFallbackMarketsPayload(error.message);
-      cacheTime = now;
-      return cache;
+      marketData = "fallback";
+      stooqStatus = "fallback";
+      errors.push(`Stooq: ${error.message}`);
+      console.error(`Stooq fallback: ${error.message}`);
     }
+
+    let treasury = fallbackTreasuryEntries();
+    let treasuryStatus = "live";
+    try {
+      if (treasuryResult.status !== "fulfilled") throw treasuryResult.reason;
+      treasury = validateTreasuryEntries(treasuryResult.value);
+    } catch (error) {
+      marketData = "fallback";
+      treasuryStatus = "fallback";
+      errors.push(`Treasury: ${error.message}`);
+      console.error(`Treasury fallback: ${error.message}`);
+    }
+
+    const history = {
+      gold:
+        goldHistoryResult.status === "fulfilled"
+          ? parseOptionalHistory(goldHistoryResult.value, "Gold history", errors)
+          : [],
+      spx:
+        spxHistoryResult.status === "fulfilled"
+          ? parseOptionalHistory(spxHistoryResult.value, "S&P history", errors)
+          : [],
+      dxy:
+        dxyHistoryResult.status === "fulfilled"
+          ? parseOptionalHistory(dxyHistoryResult.value, "DXY history", errors)
+          : [],
+    };
+    if (goldHistoryResult.status === "rejected") errors.push(`Gold history: ${goldHistoryResult.reason.message}`);
+    if (spxHistoryResult.status === "rejected") errors.push(`S&P history: ${spxHistoryResult.reason.message}`);
+    if (dxyHistoryResult.status === "rejected") errors.push(`DXY history: ${dxyHistoryResult.reason.message}`);
+
+    cache = await buildMarketPayload({
+      quotes: quoteRows,
+      treasury,
+      history,
+      providerStatus: {
+        marketData,
+        stooq: stooqStatus,
+        treasury: treasuryStatus,
+        history: errors.some((error) => /history/i.test(error)) ? "partial" : "live",
+        sources: [
+          stooqStatus === "fallback" ? "Local degraded market fallback" : "Stooq CSV",
+          treasuryStatus === "fallback"
+            ? "Local Treasury yield fallback"
+            : "U.S. Treasury yield curve XML",
+          "OpenAI Responses API",
+        ],
+        errors,
+      },
+    });
+    cacheTime = now;
+    return cache;
   })();
 
   try {
@@ -1112,6 +1188,11 @@ async function fetchMacroNews() {
 
   try {
     return await newsFetchPromise;
+  } catch (error) {
+    console.error(`News fallback: ${error.message}`);
+    newsCache = buildFallbackNews(error.message);
+    newsCacheTime = now;
+    return newsCache;
   } finally {
     newsFetchPromise = null;
   }
