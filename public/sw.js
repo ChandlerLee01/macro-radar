@@ -1,6 +1,16 @@
 const STATIC_CACHE = "macro-radar-static-v1";
 const API_CACHE = "macro-radar-api-v1";
-const STATIC_ASSETS = ["/", "/index.html", "/styles.css", "/script.js", "/manifest.json", "/icon.svg"];
+const STATIC_ASSETS = [
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/script.js",
+  "/manifest.json",
+  "/icon.svg",
+  "/icons/apple-touch-icon.png",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+];
 const API_ROUTES = ["/api/markets", "/api/news", "/api/brief", "/api/timeline", "/api/alerts"];
 
 self.addEventListener("install", (event) => {

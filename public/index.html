@@ -13,7 +13,7 @@
     <title>Macro Radar</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -26,59 +26,77 @@
     <main class="dashboard">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Macro Radar</p>
-          <h1>AI-powered macroeconomic intelligence platform</h1>
-          <p class="hero-subtitle">
+          <p class="eyebrow" data-i18n="brand">Macro Radar</p>
+          <h1 data-i18n="heroTitle">AI-powered macroeconomic intelligence platform</h1>
+          <p class="hero-subtitle" data-i18n="heroSubtitle">
             Monitor market regimes, track macro signals, and generate investment-oriented
             research from live market data and news.
           </p>
-          <p class="hero-disclaimer">For educational and research purposes only. Not financial advice.</p>
-        </div>
-        <div class="status-pill" id="refreshStatus">
-          <span class="pulse"></span>
-          Connecting
+          <p class="hero-disclaimer" data-i18n="disclaimer">
+            For educational and research purposes only. Not financial advice.
+          </p>
+          <div class="topbar-actions">
+            <div class="status-pill" id="refreshStatus">
+              <span class="pulse"></span>
+              <span>Connecting</span>
+            </div>
+            <button
+              class="language-toggle"
+              id="languageToggle"
+              type="button"
+              aria-label="Switch language"
+              aria-pressed="false"
+            >
+              EN / 中文
+            </button>
+          </div>
         </div>
       </header>
 
       <section class="analyst-panel" aria-labelledby="analystHeading">
         <div class="section-heading analyst-heading">
           <div>
-            <p class="eyebrow">AI Macro Analyst</p>
-            <h2 id="analystHeading">Ask the macro tape</h2>
+            <p class="eyebrow" data-i18n="analystEyebrow">AI Macro Analyst</p>
+            <h2 id="analystHeading" data-i18n="analystHeading">Ask the macro tape</h2>
           </div>
           <span class="tag" id="analystProvider">Research mode</span>
         </div>
         <form class="analyst-form" id="analystForm">
-          <label class="sr-only" for="analystQuestion">Macro or market question</label>
+          <label class="sr-only" for="analystQuestion" data-i18n="questionLabel">Macro or market question</label>
           <textarea
             id="analystQuestion"
             name="question"
             rows="4"
+            data-i18n-placeholder="questionPlaceholder"
             placeholder="Ask a macro or market question..."
           ></textarea>
           <div class="prompt-row" aria-label="Example macro questions">
-            <button type="button" data-example-prompt="Is gold bullish over the next 3 months?">
+            <button type="button" data-i18n="promptGold" data-i18n-prompt="promptGold" data-example-prompt="Is gold bullish over the next 3 months?">
               Is gold bullish over the next 3 months?
             </button>
-            <button type="button" data-example-prompt="What does a stronger dollar mean for equities?">
+            <button type="button" data-i18n="promptDollar" data-i18n-prompt="promptDollar" data-example-prompt="What does a stronger dollar mean for equities?">
               What does a stronger dollar mean for equities?
             </button>
-            <button type="button" data-example-prompt="How should investors read rising Treasury yields?">
+            <button type="button" data-i18n="promptYields" data-i18n-prompt="promptYields" data-example-prompt="How should investors read rising Treasury yields?">
               How should investors read rising Treasury yields?
             </button>
-            <button type="button" data-example-prompt="What is today’s macro risk regime?">
+            <button type="button" data-i18n="promptRegime" data-i18n-prompt="promptRegime" data-example-prompt="What is today’s macro risk regime?">
               What is today’s macro risk regime?
             </button>
           </div>
           <div class="analyst-actions">
-            <button class="primary-button" id="analystSubmit" type="submit">Generate Analysis</button>
-            <span id="analystStatus">Uses live market data, regime signals, and macro news.</span>
+            <button class="primary-button" id="analystSubmit" type="submit" data-i18n="generateAnalysis">
+              Generate Analysis
+            </button>
+            <span id="analystStatus" data-i18n="analystStatus">
+              Uses live market data, regime signals, and macro news.
+            </span>
           </div>
         </form>
         <div class="analyst-result empty" id="analystResult">
           <div>
-            <span class="result-kicker">Waiting for question</span>
-            <strong>Analysis will appear here.</strong>
+            <span class="result-kicker" data-i18n="waitingQuestion">Waiting for question</span>
+            <strong data-i18n="analysisAppears">Analysis will appear here.</strong>
           </div>
         </div>
       </section>
@@ -88,8 +106,8 @@
       <section class="regime-panel" aria-labelledby="regimeHeading">
         <div class="section-heading regime-heading">
           <div>
-            <p class="eyebrow">Market Regime Engine</p>
-            <h2 id="regimeHeading">Current Regime</h2>
+            <p class="eyebrow" data-i18n="regimeEyebrow">Market Regime Engine</p>
+            <h2 id="regimeHeading" data-i18n="currentRegime">Current Regime</h2>
           </div>
           <span class="tag" id="regimeConfidence">-- confidence</span>
         </div>
@@ -105,8 +123,8 @@
       <section class="alerts-panel" aria-labelledby="alertsHeading">
         <div class="section-heading alerts-heading">
           <div>
-            <p class="eyebrow">Macro Alert Engine</p>
-            <h2 id="alertsHeading">Live Alerts</h2>
+            <p class="eyebrow" data-i18n="alertsEyebrow">Macro Alert Engine</p>
+            <h2 id="alertsHeading" data-i18n="liveAlerts">Live Alerts</h2>
           </div>
           <span class="tag" id="alertsStatus">Loading</span>
         </div>
@@ -116,10 +134,10 @@
       <section class="charts-panel" aria-labelledby="chartsHeading">
         <div class="section-heading charts-heading">
           <div>
-            <p class="eyebrow">Interactive Charts</p>
-            <h2 id="chartsHeading">1D / 1W Asset Moves</h2>
+            <p class="eyebrow" data-i18n="chartsEyebrow">Interactive Charts</p>
+            <h2 id="chartsHeading" data-i18n="chartsHeading">1D / 1W Asset Moves</h2>
           </div>
-          <span class="tag">Hover Enabled</span>
+          <span class="tag" data-i18n="hoverEnabled">Hover Enabled</span>
         </div>
         <div class="charts-grid" id="chartsGrid"></div>
       </section>
@@ -128,8 +146,8 @@
         <article class="summary-panel">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">AI Summary</p>
-              <h2>Market Pulse</h2>
+              <p class="eyebrow" data-i18n="summaryEyebrow">AI Summary</p>
+              <h2 data-i18n="marketPulse">Market Pulse</h2>
             </div>
             <span class="tag" id="summaryTag">Generated</span>
           </div>
@@ -140,30 +158,30 @@
         <aside class="watch-panel">
           <div class="section-heading compact">
             <div>
-              <p class="eyebrow">Watchlist</p>
-              <h2>Key Signals</h2>
+              <p class="eyebrow" data-i18n="watchlist">Watchlist</p>
+              <h2 data-i18n="keySignals">Key Signals</h2>
             </div>
           </div>
           <div class="signal-list">
             <div class="signal">
               <span class="signal-dot gold"></span>
               <div>
-                <strong>Defensive demand</strong>
-                <p>Gold remains bid while investors monitor inflation and geopolitical risk.</p>
+                <strong data-i18n="defensiveDemand">Defensive demand</strong>
+                <p data-i18n="defensiveDemandText">Gold remains bid while investors monitor inflation and geopolitical risk.</p>
               </div>
             </div>
             <div class="signal">
               <span class="signal-dot equity"></span>
               <div>
-                <strong>Risk appetite</strong>
-                <p>Equities are firm, supported by earnings momentum and AI capital spending.</p>
+                <strong data-i18n="riskAppetite">Risk appetite</strong>
+                <p data-i18n="riskAppetiteText">Equities are firm, supported by earnings momentum and AI capital spending.</p>
               </div>
             </div>
             <div class="signal">
               <span class="signal-dot rates"></span>
               <div>
-                <strong>Rates anchor</strong>
-                <p>The 10Y yield is near the mid-4% area, keeping valuation pressure visible.</p>
+                <strong data-i18n="ratesAnchor">Rates anchor</strong>
+                <p data-i18n="ratesAnchorText">The 10Y yield is near the mid-4% area, keeping valuation pressure visible.</p>
               </div>
             </div>
           </div>
@@ -173,8 +191,8 @@
       <section class="brief-panel" aria-labelledby="briefHeading">
         <div class="section-heading brief-heading">
           <div>
-            <p class="eyebrow">Daily Macro Brief</p>
-            <h2 id="briefHeading">Today’s Market Briefing</h2>
+            <p class="eyebrow" data-i18n="briefEyebrow">Daily Macro Brief</p>
+            <h2 id="briefHeading" data-i18n="briefHeading">Today’s Market Briefing</h2>
           </div>
           <span class="tag" id="briefStatus">Loading</span>
         </div>
@@ -184,20 +202,20 @@
         </div>
         <div class="brief-grid">
           <article class="brief-block">
-            <h3>Main Risks</h3>
+            <h3 data-i18n="mainRisks">Main Risks</h3>
             <ul id="briefRisks"></ul>
           </article>
           <article class="brief-block">
-            <h3>Key Drivers</h3>
+            <h3 data-i18n="keyDrivers">Key Drivers</h3>
             <ul id="briefDrivers"></ul>
           </article>
           <article class="brief-block">
-            <h3>Watching Next</h3>
+            <h3 data-i18n="watchingNext">Watching Next</h3>
             <ul id="briefWatching"></ul>
           </article>
         </div>
         <div class="brief-interpretation">
-          <strong>Actionable Interpretation</strong>
+          <strong data-i18n="actionableInterpretation">Actionable Interpretation</strong>
           <p id="briefInterpretation">Waiting for live macro data.</p>
         </div>
       </section>
@@ -205,8 +223,8 @@
       <section class="timeline-panel" aria-labelledby="timelineHeading">
         <div class="section-heading timeline-heading">
           <div>
-            <p class="eyebrow">Historical Timeline</p>
-            <h2 id="timelineHeading">Past Regimes & Briefs</h2>
+            <p class="eyebrow" data-i18n="timelineEyebrow">Historical Timeline</p>
+            <h2 id="timelineHeading" data-i18n="timelineHeading">Past Regimes & Briefs</h2>
           </div>
           <span class="tag" id="timelineStatus">Loading</span>
         </div>
@@ -216,8 +234,8 @@
       <section class="news-panel" aria-labelledby="newsHeading">
         <div class="section-heading news-heading">
           <div>
-            <p class="eyebrow">Live Macro News</p>
-            <h2 id="newsHeading">Headlines Moving the Tape</h2>
+            <p class="eyebrow" data-i18n="newsEyebrow">Live Macro News</p>
+            <h2 id="newsHeading" data-i18n="newsHeading">Headlines Moving the Tape</h2>
           </div>
           <div class="news-meta">
             <span class="tag" id="newsStatus">Loading</span>

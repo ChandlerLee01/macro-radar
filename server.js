@@ -50,6 +50,7 @@ const mimeTypes = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/manifest+json; charset=utf-8",
   ".svg": "image/svg+xml; charset=utf-8",
+  ".png": "image/png",
 };
 const staticFiles = new Set([
   "/index.html",
@@ -58,6 +59,9 @@ const staticFiles = new Set([
   "/manifest.json",
   "/sw.js",
   "/icon.svg",
+  "/icons/apple-touch-icon.png",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
 ]);
 
 let cache = null;

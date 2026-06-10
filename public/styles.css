@@ -42,6 +42,36 @@ body {
   margin-bottom: 28px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.language-toggle {
+  min-height: 36px;
+  border: 1px solid rgba(103, 167, 255, 0.56);
+  border-radius: 999px;
+  background: rgba(16, 23, 34, 0.96);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.26);
+  white-space: nowrap;
+}
+
+.language-toggle:hover,
+.language-toggle:focus {
+  border-color: rgba(103, 167, 255, 0.65);
+  color: var(--text);
+}
+
 .eyebrow {
   margin: 0 0 8px;
   color: var(--muted);
@@ -1167,10 +1197,181 @@ h2 {
   }
 }
 
+@media (max-width: 767px) {
+  body {
+    padding-right: env(safe-area-inset-right);
+    padding-left: env(safe-area-inset-left);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dashboard {
+    width: min(100% - 24px, 1180px);
+    padding: calc(18px + env(safe-area-inset-top)) 0 calc(22px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .topbar-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .eyebrow {
+    margin-bottom: 6px;
+    font-size: 0.68rem;
+  }
+
+  h1 {
+    max-width: 11.5ch;
+    margin-bottom: 12px;
+    font-size: 2.35rem;
+    line-height: 1;
+  }
+
+  h2 {
+    font-size: 1.05rem;
+  }
+
+  .hero-subtitle {
+    max-width: 34rem;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    line-height: 1.48;
+  }
+
+  .hero-disclaimer {
+    max-width: 32rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .status-pill,
+  .tag,
+  .language-toggle {
+    min-height: 32px;
+    padding: 0 11px;
+    font-size: 0.76rem;
+  }
+
+  .language-toggle {
+    border-color: rgba(103, 167, 255, 0.48);
+    background: rgba(16, 23, 34, 0.94);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  }
+
+  .analyst-panel,
+  .regime-panel,
+  .alerts-panel,
+  .summary-panel,
+  .watch-panel,
+  .brief-panel,
+  .news-panel,
+  .chart-card {
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .analyst-panel,
+  .metrics-grid,
+  .regime-panel,
+  .alerts-panel,
+  .charts-panel,
+  .summary-layout,
+  .brief-panel,
+  .timeline-panel {
+    margin-bottom: 12px;
+  }
+
+  .analyst-heading,
+  .regime-heading,
+  .alerts-heading,
+  .charts-heading,
+  .brief-heading,
+  .timeline-heading {
+    margin-bottom: 12px;
+  }
+
+  .analyst-form {
+    gap: 10px;
+  }
+
+  .analyst-form textarea {
+    min-height: 104px;
+    padding: 13px 14px;
+    font-size: 0.95rem;
+  }
+
+  .prompt-row {
+    gap: 7px;
+  }
+
+  .prompt-row button {
+    flex: 1 1 100%;
+    padding: 10px 11px;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .primary-button {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .analyst-result {
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px;
+  }
+
+  .result-section ul,
+  .signals-card ul,
+  .alert-copy p,
+  .alert-empty p,
+  .news-copy p,
+  #regimeExplanation,
+  #marketSummary,
+  .brief-theme p,
+  .brief-interpretation p {
+    line-height: 1.5;
+  }
+
+  .metric-card {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .metric-value {
+    font-size: 1.75rem;
+  }
+
+  .sparkline {
+    height: 56px;
+    margin-top: 18px;
+  }
+
+  .regime-label {
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  .regime-input,
+  .alert-item,
+  .brief-block,
+  .brief-interpretation,
+  .timeline-item,
+  .news-item {
+    padding: 12px;
+  }
+}
+
 @media (max-width: 640px) {
   .dashboard {
     width: min(100% - 24px, 1180px);
-    padding: 24px 0;
+    padding: calc(18px + env(safe-area-inset-top)) 0 calc(22px + env(safe-area-inset-bottom));
   }
 
   .topbar,
@@ -1239,5 +1440,31 @@ h2 {
 
   .news-source > div {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    max-width: 10.5ch;
+    font-size: 2.05rem;
+  }
+
+  .dashboard {
+    width: min(100% - 20px, 1180px);
+  }
+
+  .hero-subtitle {
+    max-width: 28rem;
+  }
+
+  .analyst-panel,
+  .regime-panel,
+  .alerts-panel,
+  .summary-panel,
+  .watch-panel,
+  .brief-panel,
+  .news-panel,
+  .chart-card {
+    padding: 14px;
   }
 }

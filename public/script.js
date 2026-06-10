@@ -4,8 +4,294 @@ const BRIEF_REFRESH_MS = 300_000;
 const ALERT_REFRESH_MS = 60_000;
 const API_CACHE_PREFIX = "macro-radar:api:";
 const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
+const LANGUAGE_KEY = "macro-radar:language";
+const DEFAULT_LANGUAGE = "en";
+const translations = {
+  en: {
+    actionableInterpretation: "Actionable Interpretation",
+    alertsEyebrow: "Macro Alert Engine",
+    alertsUnavailable: "Alerts unavailable",
+    analysisAppears: "Analysis will appear here.",
+    analystEyebrow: "AI Macro Analyst",
+    analystErrorStatus: "Analysis could not be generated.",
+    analystHeading: "Ask the macro tape",
+    analystStatus: "Uses live market data, regime signals, and macro news.",
+    bearishFactors: "Bearish Factors",
+    brand: "Macro Radar",
+    briefEyebrow: "Daily Macro Brief",
+    briefHeading: "Today’s Market Briefing",
+    briefCouldNotGenerate: "The daily brief could not be generated. The dashboard will retry automatically.",
+    briefUnavailable: "Brief unavailable",
+    bullishFactors: "Bullish Factors",
+    cached: "Cached",
+    calculating: "Calculating...",
+    chartDataUnavailable: "Chart data unavailable",
+    chartsEyebrow: "Interactive Charts",
+    chartsHeading: "1D / 1W Asset Moves",
+    checkingThresholds: "Checking current macro thresholds.",
+    confidence: "Confidence",
+    confidenceLabel: "confidence",
+    connecting: "Connecting",
+    couldNotLoadAlerts: "Could not load macro alerts.",
+    couldNotLoadTimeline: "Could not load historical briefs.",
+    currentRegime: "Current Regime",
+    dataUnavailable: "Data unavailable",
+    defensiveDemand: "Defensive demand",
+    defensiveDemandText: "Gold remains bid while investors monitor inflation and geopolitical risk.",
+    disclaimer: "For educational and research purposes only. Not financial advice.",
+    enterQuestion: "Enter a macro or market question first.",
+    error: "Error",
+    feedRetry: "The feed will retry automatically.",
+    fetchingNews: "Fetching live news feed",
+    generated: "Generated",
+    generateAnalysis: "Generate Analysis",
+    generating: "Generating",
+    generatingAnalysis: "Generating analysis",
+    generatingCopy: "Combining market moves, regime data, and macro headlines.",
+    generatingTheme: "Generating today’s market theme...",
+    heroSubtitle:
+      "Monitor market regimes, track macro signals, and generate investment-oriented research from live market data and news.",
+    heroTitle: "AI-powered macroeconomic intelligence platform",
+    hoverEnabled: "Hover Enabled",
+    keyDrivers: "Key Drivers",
+    keySignals: "Key Signals",
+    liveAlerts: "Live Alerts",
+    liveNewsUnavailable: "Live macro news is temporarily unavailable.",
+    loading: "Loading",
+    loadingAlerts: "Loading alerts...",
+    loadingChart: "Loading chart",
+    loadingHeadline: "Loading macro headline...",
+    loadingLiveQuote: "Loading live quote",
+    loadingMarketData: "Loading live market data...",
+    loadingTimeline: "Loading timeline...",
+    localModel: "Local model",
+    mainRisks: "Main Risks",
+    marketDataUnavailable:
+      "Live market data is temporarily unavailable. The dashboard will retry automatically every 60 seconds.",
+    marketPulse: "Market Pulse",
+    newsEyebrow: "Live Macro News",
+    newsHeading: "Headlines Moving the Tape",
+    newsUnavailable: "News unavailable",
+    offlineSnapshot: "Offline snapshot",
+    offlineSnapshotShown: "Offline snapshot shown. Reconnect to generate fresh analysis.",
+    overallView: "Overall View",
+    promptDollar: "What does a stronger dollar mean for equities?",
+    promptGold: "Is gold bullish over the next 3 months?",
+    promptRegime: "What is today’s macro risk regime?",
+    promptYields: "How should investors read rising Treasury yields?",
+    questionLabel: "Macro or market question",
+    questionPlaceholder: "Ask a macro or market question...",
+    ratesAnchor: "Rates anchor",
+    ratesAnchorText: "The 10Y yield is near the mid-4% area, keeping valuation pressure visible.",
+    readingBriefs: "Reading saved daily briefs.",
+    readingSignals: "Reading live macro signals...",
+    regimeEyebrow: "Market Regime Engine",
+    researchMode: "Research mode",
+    retryAfterRefresh: "Try again after the live data refresh completes.",
+    retryAutomatically: "The dashboard will retry automatically.",
+    riskAppetite: "Risk appetite",
+    riskAppetiteText: "Equities are firm, supported by earnings momentum and AI capital spending.",
+    signal: "Signal",
+    signalsUsed: "Signals Used",
+    summaryEyebrow: "AI Summary",
+    timelineEyebrow: "Historical Timeline",
+    timelineHeading: "Past Regimes & Briefs",
+    timelineUnavailable: "Timeline unavailable",
+    unavailable: "Unavailable",
+    updated: "Updated",
+    watchlist: "Watchlist",
+    watchingNext: "Watching Next",
+    waitingAssetMoves: "Waiting for asset moves",
+    waitingForHistory: "Waiting for history...",
+    waitingForMarketData: "Waiting for market data API...",
+    waitingForQuestion: "Waiting for question",
+    waitingQuestion: "Waiting for question",
+    waitingLiveMacroData: "Waiting for live macro data.",
+    waitingMacroHeadlines: "Waiting for macro headlines",
+    waitingMacroSignals: "Waiting for live macro signals.",
+    waitingRiskSignals: "Waiting for risk signals",
+  },
+  zh: {
+    actionableInterpretation: "可操作解读",
+    alertsEyebrow: "宏观预警引擎",
+    alertsUnavailable: "预警不可用",
+    analysisAppears: "分析结果将在这里显示。",
+    analystEyebrow: "AI 宏观分析师",
+    analystErrorStatus: "无法生成分析。",
+    analystHeading: "提问宏观市场",
+    analystStatus: "使用实时市场数据、市场状态信号和宏观新闻。",
+    bearishFactors: "利空因素",
+    brand: "Macro Radar",
+    briefEyebrow: "每日宏观简报",
+    briefHeading: "今日市场简报",
+    briefCouldNotGenerate: "无法生成每日简报。仪表盘将自动重试。",
+    briefUnavailable: "简报不可用",
+    bullishFactors: "利好因素",
+    cached: "缓存",
+    calculating: "计算中...",
+    chartDataUnavailable: "图表数据不可用",
+    chartsEyebrow: "交互图表",
+    chartsHeading: "1日 / 1周资产走势",
+    checkingThresholds: "正在检查当前宏观阈值。",
+    confidence: "置信度",
+    confidenceLabel: "置信度",
+    connecting: "连接中",
+    couldNotLoadAlerts: "无法加载宏观预警。",
+    couldNotLoadTimeline: "无法加载历史简报。",
+    currentRegime: "当前市场状态",
+    dataUnavailable: "数据不可用",
+    defensiveDemand: "防御性需求",
+    defensiveDemandText: "黄金保持支撑，投资者继续关注通胀与地缘风险。",
+    disclaimer: "仅供教育和研究用途。不构成投资建议。",
+    enterQuestion: "请先输入一个宏观或市场问题。",
+    error: "错误",
+    feedRetry: "新闻流将自动重试。",
+    fetchingNews: "正在获取实时新闻",
+    generated: "已生成",
+    generateAnalysis: "生成分析",
+    generating: "生成中",
+    generatingAnalysis: "正在生成分析",
+    generatingCopy: "正在整合市场波动、状态数据和宏观新闻。",
+    generatingTheme: "正在生成今日市场主题...",
+    heroSubtitle: "监控市场状态、追踪宏观信号，并基于实时市场数据和新闻生成投资研究分析。",
+    heroTitle: "AI 驱动的宏观经济情报平台",
+    hoverEnabled: "支持悬停",
+    keyDrivers: "关键驱动",
+    keySignals: "关键信号",
+    liveAlerts: "实时预警",
+    liveNewsUnavailable: "实时宏观新闻暂时不可用。",
+    loading: "加载中",
+    loadingAlerts: "正在加载预警...",
+    loadingChart: "正在加载图表",
+    loadingHeadline: "正在加载宏观新闻...",
+    loadingLiveQuote: "正在加载实时报价",
+    loadingMarketData: "正在加载实时市场数据...",
+    loadingTimeline: "正在加载时间线...",
+    localModel: "本地模型",
+    mainRisks: "主要风险",
+    marketDataUnavailable: "实时市场数据暂时不可用。仪表盘将在 60 秒后自动重试。",
+    marketPulse: "市场脉搏",
+    newsEyebrow: "实时宏观新闻",
+    newsHeading: "影响市场的头条",
+    newsUnavailable: "新闻不可用",
+    offlineSnapshot: "离线快照",
+    offlineSnapshotShown: "已显示离线快照。重新连接后可生成最新分析。",
+    overallView: "总体观点",
+    promptDollar: "美元走强对股票意味着什么？",
+    promptGold: "未来 3 个月黄金是否偏多？",
+    promptRegime: "今天的宏观风险状态是什么？",
+    promptYields: "投资者应如何解读美债收益率上升？",
+    questionLabel: "宏观或市场问题",
+    questionPlaceholder: "输入一个宏观或市场问题...",
+    ratesAnchor: "利率锚",
+    ratesAnchorText: "10年期美债收益率接近 4% 中段，估值压力仍然可见。",
+    readingBriefs: "正在读取已保存的每日简报。",
+    readingSignals: "正在读取实时宏观信号...",
+    regimeEyebrow: "市场状态引擎",
+    researchMode: "研究模式",
+    retryAfterRefresh: "请等待实时数据刷新后重试。",
+    retryAutomatically: "仪表盘将自动重试。",
+    riskAppetite: "风险偏好",
+    riskAppetiteText: "股票表现稳健，受到盈利动能和 AI 资本开支支撑。",
+    signal: "信号",
+    signalsUsed: "使用的信号",
+    summaryEyebrow: "AI 摘要",
+    timelineEyebrow: "历史时间线",
+    timelineHeading: "过去市场状态与简报",
+    timelineUnavailable: "时间线不可用",
+    unavailable: "不可用",
+    updated: "已更新",
+    watchlist: "观察列表",
+    watchingNext: "继续关注",
+    waitingAssetMoves: "等待资产走势",
+    waitingForHistory: "等待历史数据...",
+    waitingForMarketData: "等待市场数据 API...",
+    waitingForQuestion: "等待问题",
+    waitingQuestion: "等待问题",
+    waitingLiveMacroData: "等待实时宏观数据。",
+    waitingMacroHeadlines: "等待宏观新闻",
+    waitingMacroSignals: "等待实时宏观信号。",
+    waitingRiskSignals: "等待风险信号",
+  },
+};
 const chartPeriods = {};
 let latestMarkets = [];
+let currentLanguage = readStoredLanguage();
+
+async function configureNativeStatusBar() {
+  const statusBar = window.Capacitor?.Plugins?.StatusBar;
+  if (!statusBar) return;
+
+  try {
+    await statusBar.setOverlaysWebView({ overlay: false });
+    await statusBar.setStyle({ style: "DARK" });
+    await statusBar.setBackgroundColor({ color: "#08111F" });
+  } catch (error) {
+    console.error("Status bar configuration failed", error);
+  }
+}
+
+function readStoredLanguage() {
+  try {
+    const storedLanguage = localStorage.getItem(LANGUAGE_KEY);
+    return translations[storedLanguage] ? storedLanguage : DEFAULT_LANGUAGE;
+  } catch {
+    return DEFAULT_LANGUAGE;
+  }
+}
+
+function saveLanguage(language) {
+  try {
+    localStorage.setItem(LANGUAGE_KEY, language);
+  } catch {
+    // Language choice is nice to have; the app should keep working without storage.
+  }
+}
+
+function t(key) {
+  return translations[currentLanguage]?.[key] || translations[DEFAULT_LANGUAGE][key] || key;
+}
+
+function applyLanguage() {
+  document.documentElement.lang = currentLanguage === "zh" ? "zh-Hans" : "en";
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
+  });
+  document.querySelectorAll("[data-i18n-prompt]").forEach((element) => {
+    element.dataset.examplePrompt = t(element.dataset.i18nPrompt);
+  });
+
+  const toggle = document.querySelector("#languageToggle");
+  if (toggle) {
+    toggle.textContent = currentLanguage === "zh" ? "中文 / EN" : "EN / 中文";
+    toggle.setAttribute("aria-pressed", currentLanguage === "zh" ? "true" : "false");
+  }
+
+  const refreshStatus = document.querySelector("#refreshStatus span:last-child");
+  if (
+    refreshStatus &&
+    [translations.en.connecting, translations.zh.connecting].includes(refreshStatus.textContent.trim())
+  ) {
+    refreshStatus.textContent = t("connecting");
+  }
+
+  const analystProvider = document.querySelector("#analystProvider");
+  if (
+    analystProvider &&
+    [translations.en.researchMode, translations.zh.researchMode].includes(analystProvider.textContent.trim())
+  ) {
+    analystProvider.textContent = t("researchMode");
+  }
+}
+
+function toggleLanguage() {
+  currentLanguage = currentLanguage === "zh" ? "en" : "zh";
+  saveLanguage(currentLanguage);
+  applyLanguage();
+}
 
 function readCachedPayload(key) {
   try {
@@ -108,7 +394,7 @@ function renderCharts(marketData) {
                 <div class="chart-value">${escapeHtml(item.value)}</div>
               </div>
             </div>
-            <div class="chart-stage empty-chart">Chart data unavailable</div>
+            <div class="chart-stage empty-chart">${t("chartDataUnavailable")}</div>
           </article>
         `;
       }
@@ -210,7 +496,7 @@ function renderMetrics(marketData) {
 function renderSummary(summary, summaryPoints, provider) {
   document.querySelector("#marketSummary").textContent = summary;
   document.querySelector("#summaryTag").textContent =
-    provider === "openai" ? "OpenAI" : "Generated";
+    provider === "openai" ? "OpenAI" : t("generated");
   document.querySelector("#summaryPoints").innerHTML = summaryPoints
     .map(
       ([title, text]) => `
@@ -227,7 +513,7 @@ function renderRegime(regime) {
   if (!regime) return;
 
   document.querySelector("#regimeLabel").textContent = regime.label;
-  document.querySelector("#regimeConfidence").textContent = `${regime.confidence}% confidence`;
+  document.querySelector("#regimeConfidence").textContent = `${regime.confidence}% ${t("confidenceLabel")}`;
   document.querySelector("#regimeExplanation").textContent = regime.explanation;
   document.querySelector("#regimeInputs").innerHTML = [
     ["S&P 500", regime.inputs.spxMove],
@@ -257,68 +543,67 @@ function analystList(items) {
 }
 
 function renderAnalystLoading() {
-  document.querySelector("#analystProvider").textContent = "Generating";
-  document.querySelector("#analystStatus").textContent = "Reading live macro signals...";
+  document.querySelector("#analystProvider").textContent = t("generating");
+  document.querySelector("#analystStatus").textContent = t("readingSignals");
   document.querySelector("#analystResult").className = "analyst-result empty loading-card";
   document.querySelector("#analystResult").innerHTML = `
     <div>
-      <span class="result-kicker">Generating analysis</span>
-      <strong>Combining market moves, regime data, and macro headlines.</strong>
+      <span class="result-kicker">${t("generatingAnalysis")}</span>
+      <strong>${t("generatingCopy")}</strong>
     </div>
   `;
 }
 
 function renderAnalystError(message) {
-  document.querySelector("#analystProvider").textContent = "Unavailable";
-  document.querySelector("#analystStatus").textContent = "Analysis could not be generated.";
+  document.querySelector("#analystProvider").textContent = t("unavailable");
+  document.querySelector("#analystStatus").textContent = t("analystErrorStatus");
   document.querySelector("#analystResult").className = "analyst-result error";
   document.querySelector("#analystResult").innerHTML = `
     <div>
-      <span class="result-kicker">Error</span>
+      <span class="result-kicker">${t("error")}</span>
       <strong>${escapeHtml(message)}</strong>
-      <p>Try again after the live data refresh completes.</p>
+      <p>${t("retryAfterRefresh")}</p>
     </div>
   `;
 }
 
 function renderAnalystResult(analysis) {
   document.querySelector("#analystProvider").textContent =
-    analysis.provider === "openai" ? "OpenAI" : "Local model";
-  document.querySelector("#analystStatus").textContent =
-    "For educational and research purposes only. Not financial advice.";
+    analysis.provider === "openai" ? "OpenAI" : t("localModel");
+  document.querySelector("#analystStatus").textContent = t("disclaimer");
   document.querySelector("#analystResult").className = "analyst-result";
   document.querySelector("#analystResult").innerHTML = `
     <div class="result-top">
       <article class="view-card">
-        <span class="result-kicker">Overall View</span>
+        <span class="result-kicker">${t("overallView")}</span>
         <strong>${escapeHtml(analysis.overallView)}</strong>
         <p>${escapeHtml(analysis.explanation)}</p>
       </article>
       <article class="confidence-card">
-        <span class="result-kicker">Confidence</span>
+        <span class="result-kicker">${t("confidence")}</span>
         <strong>${Number(analysis.confidence)}%</strong>
       </article>
     </div>
     <div class="result-grid">
       <article class="result-section">
-        <h3>Key Drivers</h3>
+        <h3>${t("keyDrivers")}</h3>
         <ul>${analystList(analysis.keyDrivers)}</ul>
       </article>
       <article class="result-section">
-        <h3>Bullish Factors</h3>
+        <h3>${t("bullishFactors")}</h3>
         <ul>${analystList(analysis.bullishFactors)}</ul>
       </article>
       <article class="result-section">
-        <h3>Bearish Factors</h3>
+        <h3>${t("bearishFactors")}</h3>
         <ul>${analystList(analysis.bearishFactors)}</ul>
       </article>
       <article class="result-section">
-        <h3>Watch Next</h3>
+        <h3>${t("watchingNext")}</h3>
         <ul>${analystList(analysis.watchNext)}</ul>
       </article>
     </div>
     <article class="signals-card">
-      <h3>Signals Used</h3>
+      <h3>${t("signalsUsed")}</h3>
       <ul>
         <li><span>Regime</span>${escapeHtml(analysis.signalsUsed.regime)}</li>
         <li><span>S&P 500</span>${escapeHtml(analysis.signalsUsed.spx)}</li>
@@ -356,8 +641,8 @@ async function generateAnalysis(question) {
     if (cached) {
       renderAnalystResult(cached);
       document.querySelector("#analystStatus").textContent =
-        "Offline snapshot shown. Reconnect to generate fresh analysis.";
-      document.querySelector("#analystProvider").textContent = "Cached";
+        t("offlineSnapshotShown");
+      document.querySelector("#analystProvider").textContent = t("cached");
     } else {
       renderAnalystError(error.message);
     }
@@ -465,9 +750,9 @@ function renderLoading() {
     .map(
       () => `
         <article class="metric-card loading-card">
-          <div class="metric-label">Loading live quote</div>
+          <div class="metric-label">${t("loadingLiveQuote")}</div>
           <div class="metric-value">--</div>
-          <p class="metric-foot">Waiting for market data API...</p>
+          <p class="metric-foot">${t("waitingForMarketData")}</p>
         </article>
       `,
     )
@@ -477,49 +762,49 @@ function renderLoading() {
     .map(
       () => `
         <article class="chart-card loading-card">
-          <div class="metric-label">Loading chart</div>
+          <div class="metric-label">${t("loadingChart")}</div>
           <div class="chart-value">--</div>
-          <div class="chart-stage empty-chart">Waiting for history...</div>
+          <div class="chart-stage empty-chart">${t("waitingForHistory")}</div>
         </article>
       `,
     )
     .join("");
 
-  document.querySelector("#regimeLabel").textContent = "Calculating...";
-  document.querySelector("#regimeConfidence").textContent = "-- confidence";
-  document.querySelector("#regimeExplanation").textContent = "Waiting for live macro signals.";
+  document.querySelector("#regimeLabel").textContent = t("calculating");
+  document.querySelector("#regimeConfidence").textContent = `-- ${t("confidenceLabel")}`;
+  document.querySelector("#regimeExplanation").textContent = t("waitingMacroSignals");
   document.querySelector("#regimeInputs").innerHTML = Array.from({ length: 4 })
     .map(
       () => `
         <div class="regime-input loading-card">
-          <span>Signal</span>
+          <span>${t("signal")}</span>
           <strong>--</strong>
         </div>
       `,
     )
     .join("");
 
-  document.querySelector("#briefStatus").textContent = "Loading";
+  document.querySelector("#briefStatus").textContent = t("loading");
   document.querySelector("#briefRegime").textContent = "--";
-  document.querySelector("#briefTheme").textContent = "Generating today’s market theme...";
-  renderList("#briefRisks", ["Waiting for risk signals"]);
-  renderList("#briefDrivers", ["Waiting for asset moves"]);
-  renderList("#briefWatching", ["Waiting for macro headlines"]);
-  document.querySelector("#briefInterpretation").textContent = "Waiting for live macro data.";
+  document.querySelector("#briefTheme").textContent = t("generatingTheme");
+  renderList("#briefRisks", [t("waitingRiskSignals")]);
+  renderList("#briefDrivers", [t("waitingAssetMoves")]);
+  renderList("#briefWatching", [t("waitingMacroHeadlines")]);
+  document.querySelector("#briefInterpretation").textContent = t("waitingLiveMacroData");
 
-  document.querySelector("#timelineStatus").textContent = "Loading";
+  document.querySelector("#timelineStatus").textContent = t("loading");
   document.querySelector("#timelineList").innerHTML = `
     <article class="timeline-empty loading-card">
-      <strong>Loading timeline...</strong>
-      <p>Reading saved daily briefs.</p>
+      <strong>${t("loadingTimeline")}</strong>
+      <p>${t("readingBriefs")}</p>
     </article>
   `;
 
-  document.querySelector("#alertsStatus").textContent = "Loading";
+  document.querySelector("#alertsStatus").textContent = t("loading");
   document.querySelector("#alertsList").innerHTML = `
     <article class="alert-empty loading-card">
-      <strong>Loading alerts...</strong>
-      <p>Checking current macro thresholds.</p>
+      <strong>${t("loadingAlerts")}</strong>
+      <p>${t("checkingThresholds")}</p>
     </article>
   `;
 }
@@ -542,8 +827,8 @@ function renderNewsLoading() {
         <article class="news-item loading-news">
           <span class="news-time">--:--</span>
           <div>
-            <h3>Loading macro headline...</h3>
-            <p>Fetching live news feed</p>
+            <h3>${t("loadingHeadline")}</h3>
+            <p>${t("fetchingNews")}</p>
           </div>
         </article>
       `,
@@ -583,7 +868,7 @@ function renderNews(payload) {
     })
     .join("");
 
-  document.querySelector("#newsStatus").textContent = `Updated ${new Date(
+  document.querySelector("#newsStatus").textContent = `${t("updated")} ${new Date(
     payload.updatedAt,
   ).toLocaleTimeString([], {
     hour: "2-digit",
@@ -602,15 +887,15 @@ async function refreshMarkets() {
     renderCharts(payload.markets);
     renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
-    setStatus(`${fromCache ? "Offline snapshot" : "Updated"} ${new Date(payload.updatedAt).toLocaleTimeString([], {
+    setStatus(`${fromCache ? t("offlineSnapshot") : t("updated")} ${new Date(payload.updatedAt).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     })}`);
   } catch (error) {
-    setStatus(latestMarkets.length ? "Offline snapshot" : "Data unavailable");
+    setStatus(latestMarkets.length ? t("offlineSnapshot") : t("dataUnavailable"));
     if (!latestMarkets.length) {
       document.querySelector("#marketSummary").textContent =
-        "Live market data is temporarily unavailable. The dashboard will retry automatically every 60 seconds.";
+        t("marketDataUnavailable");
     }
     console.error(error);
   }
@@ -621,16 +906,16 @@ async function refreshNews() {
     const { payload, fromCache } = await fetchJsonWithSnapshot("/api/news", "news");
     renderNews(payload);
     if (fromCache) {
-      document.querySelector("#newsStatus").textContent = "Offline snapshot";
+      document.querySelector("#newsStatus").textContent = t("offlineSnapshot");
     }
   } catch (error) {
-    document.querySelector("#newsStatus").textContent = "News unavailable";
+    document.querySelector("#newsStatus").textContent = t("newsUnavailable");
     document.querySelector("#newsList").innerHTML = `
       <article class="news-item">
         <span class="news-time">--:--</span>
         <div class="news-copy">
-          <h3>Live macro news is temporarily unavailable.</h3>
-          <p>The feed will retry automatically.</p>
+          <h3>${t("liveNewsUnavailable")}</h3>
+          <p>${t("feedRetry")}</p>
         </div>
       </article>
     `;
@@ -643,13 +928,13 @@ async function refreshBrief() {
     const { payload, fromCache } = await fetchJsonWithSnapshot("/api/brief", "brief");
     renderBrief(payload);
     if (fromCache) {
-      document.querySelector("#briefStatus").textContent = "Offline snapshot";
+      document.querySelector("#briefStatus").textContent = t("offlineSnapshot");
     }
     refreshTimeline();
   } catch (error) {
-    document.querySelector("#briefStatus").textContent = "Brief unavailable";
+    document.querySelector("#briefStatus").textContent = t("briefUnavailable");
     document.querySelector("#briefTheme").textContent =
-      "The daily brief could not be generated. The dashboard will retry automatically.";
+      t("briefCouldNotGenerate");
     console.error(error);
   }
 }
@@ -659,14 +944,14 @@ async function refreshTimeline() {
     const { payload, fromCache } = await fetchJsonWithSnapshot("/api/timeline", "timeline");
     renderTimeline(payload);
     if (fromCache) {
-      document.querySelector("#timelineStatus").textContent = "Offline snapshot";
+      document.querySelector("#timelineStatus").textContent = t("offlineSnapshot");
     }
   } catch (error) {
-    document.querySelector("#timelineStatus").textContent = "Timeline unavailable";
+    document.querySelector("#timelineStatus").textContent = t("timelineUnavailable");
     document.querySelector("#timelineList").innerHTML = `
       <article class="timeline-empty">
-        <strong>Could not load historical briefs.</strong>
-        <p>The dashboard will retry automatically.</p>
+        <strong>${t("couldNotLoadTimeline")}</strong>
+        <p>${t("retryAutomatically")}</p>
       </article>
     `;
     console.error(error);
@@ -678,14 +963,14 @@ async function refreshAlerts() {
     const { payload, fromCache } = await fetchJsonWithSnapshot("/api/alerts", "alerts");
     renderAlerts(payload);
     if (fromCache) {
-      document.querySelector("#alertsStatus").textContent = "Offline snapshot";
+      document.querySelector("#alertsStatus").textContent = t("offlineSnapshot");
     }
   } catch (error) {
-    document.querySelector("#alertsStatus").textContent = "Alerts unavailable";
+    document.querySelector("#alertsStatus").textContent = t("alertsUnavailable");
     document.querySelector("#alertsList").innerHTML = `
       <article class="alert-empty">
-        <strong>Could not load macro alerts.</strong>
-        <p>The dashboard will retry automatically.</p>
+        <strong>${t("couldNotLoadAlerts")}</strong>
+        <p>${t("retryAutomatically")}</p>
       </article>
     `;
     console.error(error);
@@ -723,7 +1008,7 @@ document.querySelector("#analystForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const question = document.querySelector("#analystQuestion").value.trim();
   if (!question) {
-    renderAnalystError("Enter a macro or market question first.");
+    renderAnalystError(t("enterQuestion"));
     return;
   }
 
@@ -738,6 +1023,8 @@ document.addEventListener("click", (event) => {
   document.querySelector("#analystQuestion").focus();
 });
 
+document.querySelector("#languageToggle").addEventListener("click", toggleLanguage);
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch((error) => {
@@ -746,6 +1033,8 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+configureNativeStatusBar();
+applyLanguage();
 renderLoading();
 renderNewsLoading();
 refreshMarkets();
