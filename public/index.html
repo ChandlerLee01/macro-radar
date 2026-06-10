@@ -115,6 +115,30 @@
         </div>
       </section>
 
+      <section class="watchlist-panel" aria-labelledby="watchlistHeading">
+        <div class="section-heading watchlist-heading">
+          <div>
+            <p class="eyebrow" data-i18n="watchlistEyebrow">Watchlist</p>
+            <h2 id="watchlistHeading" data-i18n="watchlistHeading">Favorite Assets</h2>
+          </div>
+          <button class="secondary-button" id="watchlistToggle" type="button" data-i18n="addAsset" aria-expanded="false">
+            Add Asset
+          </button>
+        </div>
+        <div class="watchlist-picker" id="watchlistPicker" hidden>
+          <label class="sr-only" for="watchlistSearch" data-i18n="searchAssets">Search assets</label>
+          <input
+            id="watchlistSearch"
+            type="search"
+            data-i18n-placeholder="searchAssets"
+            placeholder="Search assets"
+            autocomplete="off"
+          />
+          <div class="watchlist-options" id="watchlistOptions" role="listbox"></div>
+        </div>
+        <div class="watchlist-grid" id="watchlistGrid"></div>
+      </section>
+
       <section class="daily-brief-panel" aria-labelledby="dailyBriefHeading">
         <div class="section-heading daily-brief-heading">
           <div>

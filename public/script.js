@@ -5,10 +5,26 @@ const ALERT_REFRESH_MS = 60_000;
 const API_CACHE_PREFIX = "macro-radar:api:";
 const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
 const LANGUAGE_KEY = "macro-radar:language";
+const WATCHLIST_KEY = "macro-radar:watchlist";
 const DEFAULT_LANGUAGE = "en";
+const WATCHLIST_ASSETS = [
+  { id: "SPX", name: "S&P 500", marketId: "spx" },
+  { id: "NASDAQ", name: "NASDAQ" },
+  { id: "BTC", name: "Bitcoin" },
+  { id: "ETH", name: "Ethereum" },
+  { id: "Gold", name: "Gold", marketId: "gold" },
+  { id: "Silver", name: "Silver" },
+  { id: "DXY", name: "US Dollar Index", marketId: "dxy" },
+  { id: "EURUSD", name: "EUR/USD" },
+  { id: "USDJPY", name: "USD/JPY" },
+  { id: "WTI", name: "WTI Crude" },
+  { id: "US10Y", name: "US 10Y Treasury", marketId: "tenYear" },
+];
 const translations = {
   en: {
     actionableInterpretation: "Actionable Interpretation",
+    add: "Add",
+    addAsset: "Add Asset",
     alertsEyebrow: "Macro Alert Engine",
     alertsUnavailable: "Alerts unavailable",
     analysisAppears: "Analysis will appear here.",
@@ -114,6 +130,9 @@ const translations = {
     unavailable: "Unavailable",
     updated: "Updated",
     watchlist: "Watchlist",
+    watchlistEmpty: "No favorite assets yet.",
+    watchlistEyebrow: "Watchlist",
+    watchlistHeading: "Favorite Assets",
     watchingNext: "Watching Next",
     waitingAssetMoves: "Waiting for asset moves",
     waitingForHistory: "Waiting for history...",
@@ -124,9 +143,13 @@ const translations = {
     waitingMacroHeadlines: "Waiting for macro headlines",
     waitingMacroSignals: "Waiting for live macro signals.",
     waitingRiskSignals: "Waiting for risk signals",
+    removeAsset: "Remove asset",
+    searchAssets: "Search assets",
   },
   zh: {
     actionableInterpretation: "可操作解读",
+    add: "添加",
+    addAsset: "添加资产",
     alertsEyebrow: "宏观预警引擎",
     alertsUnavailable: "预警不可用",
     analysisAppears: "分析结果将在这里显示。",
@@ -230,6 +253,9 @@ const translations = {
     unavailable: "不可用",
     updated: "已更新",
     watchlist: "观察列表",
+    watchlistEmpty: "还没有收藏资产。",
+    watchlistEyebrow: "观察列表",
+    watchlistHeading: "收藏资产",
     watchingNext: "继续关注",
     waitingAssetMoves: "等待资产走势",
     waitingForHistory: "等待历史数据...",
@@ -240,10 +266,13 @@ const translations = {
     waitingMacroHeadlines: "等待宏观新闻",
     waitingMacroSignals: "等待实时宏观信号。",
     waitingRiskSignals: "等待风险信号",
+    removeAsset: "移除资产",
+    searchAssets: "搜索资产",
   },
 };
 const chartPeriods = {};
 let latestMarkets = [];
+let watchlistAssetIds = readStoredWatchlist();
 let currentLanguage = readStoredLanguage();
 
 async function configureNativeStatusBar() {
@@ -274,6 +303,57 @@ function saveLanguage(language) {
   } catch {
     // Language choice is nice to have; the app should keep working without storage.
   }
+}
+
+function readStoredWatchlist() {
+  try {
+    const supportedIds = new Set(WATCHLIST_ASSETS.map((asset) => asset.id));
+    const parsed = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((id, index) => supportedIds.has(id) && parsed.indexOf(id) === index)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveWatchlist() {
+  try {
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlistAssetIds));
+  } catch {
+    // Watchlist persistence is local-only; rendering should continue if storage fails.
+  }
+}
+
+function watchlistAssetById(id) {
+  return WATCHLIST_ASSETS.find((asset) => asset.id === id);
+}
+
+function setWatchlistPicker(open) {
+  const picker = document.querySelector("#watchlistPicker");
+  const toggle = document.querySelector("#watchlistToggle");
+  if (!picker || !toggle) return;
+
+  picker.hidden = !open;
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) {
+    document.querySelector("#watchlistSearch")?.focus();
+  }
+}
+
+function addWatchlistAsset(id) {
+  if (watchlistAssetIds.includes(id) || !watchlistAssetById(id)) return;
+  watchlistAssetIds = [...watchlistAssetIds, id];
+  saveWatchlist();
+  renderWatchlist();
+  renderWatchlistOptions();
+}
+
+function removeWatchlistAsset(id) {
+  watchlistAssetIds = watchlistAssetIds.filter((assetId) => assetId !== id);
+  saveWatchlist();
+  renderWatchlist();
+  renderWatchlistOptions();
 }
 
 function t(key) {
@@ -331,6 +411,9 @@ function applyLanguage() {
   ) {
     analystProvider.textContent = t("researchMode");
   }
+
+  renderWatchlist();
+  renderWatchlistOptions();
 }
 
 function setLanguage(language) {
@@ -566,6 +649,87 @@ function renderMetrics(marketData) {
       `,
     )
     .join("");
+}
+
+function watchlistQuote(asset) {
+  const market = asset.marketId ? findMarket(latestMarkets, asset.marketId) : null;
+  if (!market) {
+    return {
+      value: "--",
+      change: "--",
+      down: false,
+      unavailable: true,
+    };
+  }
+
+  return {
+    value: market.value,
+    change: market.change,
+    down: Boolean(market.down),
+    unavailable: false,
+  };
+}
+
+function renderWatchlist() {
+  const grid = document.querySelector("#watchlistGrid");
+  if (!grid) return;
+
+  if (!watchlistAssetIds.length) {
+    grid.innerHTML = `
+      <article class="watchlist-empty">
+        <strong>${t("watchlistEmpty")}</strong>
+      </article>
+    `;
+    return;
+  }
+
+  grid.innerHTML = watchlistAssetIds
+    .map((id) => {
+      const asset = watchlistAssetById(id);
+      if (!asset) return "";
+      const quote = watchlistQuote(asset);
+      return `
+        <article class="watchlist-card ${quote.down ? "down" : ""} ${quote.unavailable ? "unavailable" : ""}">
+          <div>
+            <span>${escapeHtml(asset.id)}</span>
+            <strong>${escapeHtml(asset.name)}</strong>
+          </div>
+          <div class="watchlist-quote">
+            <strong>${escapeHtml(quote.value)}</strong>
+            <em>${escapeHtml(quote.change)}</em>
+          </div>
+          <button type="button" data-remove-watchlist="${escapeHtml(asset.id)}" aria-label="${t("removeAsset")} ${escapeHtml(asset.name)}">×</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderWatchlistOptions() {
+  const options = document.querySelector("#watchlistOptions");
+  const search = document.querySelector("#watchlistSearch");
+  if (!options) return;
+
+  const query = (search?.value || "").trim().toLowerCase();
+  const assets = WATCHLIST_ASSETS.filter((asset) => {
+    const isSelected = watchlistAssetIds.includes(asset.id);
+    const matches = `${asset.id} ${asset.name}`.toLowerCase().includes(query);
+    return !isSelected && matches;
+  });
+
+  options.innerHTML = assets.length
+    ? assets
+        .map(
+          (asset) => `
+            <button type="button" role="option" data-add-watchlist="${escapeHtml(asset.id)}">
+              <span>${escapeHtml(asset.id)}</span>
+              <strong>${escapeHtml(asset.name)}</strong>
+              <em>${t("add")}</em>
+            </button>
+          `,
+        )
+        .join("")
+    : `<div class="watchlist-option-empty">${t("watchlistEmpty")}</div>`;
 }
 
 function renderSummary(summary, summaryPoints, provider) {
@@ -890,6 +1054,9 @@ function renderAlerts(payload) {
 }
 
 function renderLoading() {
+  renderWatchlist();
+  renderWatchlistOptions();
+
   document.querySelector("#metricsGrid").innerHTML = Array.from({ length: 4 })
     .map(
       () => `
@@ -1042,6 +1209,7 @@ async function refreshMarkets() {
     const { payload, fromCache } = await fetchJsonWithSnapshot("/api/markets", "markets");
     renderMetrics(payload.markets);
     renderCharts(payload.markets);
+    renderWatchlist();
     renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
     renderDailyBrief(payload);
@@ -1185,6 +1353,30 @@ document.addEventListener("click", (event) => {
 
   document.querySelector("#analystQuestion").value = button.dataset.examplePrompt;
   document.querySelector("#analystQuestion").focus();
+});
+
+document.querySelector("#watchlistToggle").addEventListener("click", () => {
+  const picker = document.querySelector("#watchlistPicker");
+  setWatchlistPicker(Boolean(picker?.hidden));
+  renderWatchlistOptions();
+});
+
+document.querySelector("#watchlistSearch").addEventListener("input", renderWatchlistOptions);
+
+document.querySelector("#watchlistOptions").addEventListener("click", (event) => {
+  const option = event.target.closest("[data-add-watchlist]");
+  if (!option) return;
+
+  addWatchlistAsset(option.dataset.addWatchlist);
+  document.querySelector("#watchlistSearch").value = "";
+  setWatchlistPicker(false);
+});
+
+document.querySelector("#watchlistGrid").addEventListener("click", (event) => {
+  const removeButton = event.target.closest("[data-remove-watchlist]");
+  if (!removeButton) return;
+
+  removeWatchlistAsset(removeButton.dataset.removeWatchlist);
 });
 
 document.querySelector("#languageMenuButton").addEventListener("click", (event) => {
