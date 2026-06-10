@@ -32,7 +32,7 @@ const translations = {
     chineseName: "中文",
     confidence: "Confidence",
     confidenceLabel: "confidence",
-    connecting: "Connecting",
+    connecting: "Connecting...",
     couldNotLoadAlerts: "Could not load macro alerts.",
     couldNotLoadTimeline: "Could not load historical briefs.",
     currentRegime: "Current Regime",
@@ -58,6 +58,7 @@ const translations = {
     keyDrivers: "Key Drivers",
     keySignals: "Key Signals",
     language: "Language",
+    live: "Live",
     liveAlerts: "Live Alerts",
     liveNewsUnavailable: "Live macro news is temporarily unavailable.",
     loading: "Loading",
@@ -77,6 +78,7 @@ const translations = {
     newsUnavailable: "News unavailable",
     offlineSnapshot: "Offline snapshot",
     offlineSnapshotShown: "Offline snapshot shown. Reconnect to generate fresh analysis.",
+    fallbackData: "Fallback data",
     overallView: "Overall View",
     promptDollar: "What does a stronger dollar mean for equities?",
     promptGold: "Is gold bullish over the next 3 months?",
@@ -139,7 +141,7 @@ const translations = {
     chineseName: "中文",
     confidence: "置信度",
     confidenceLabel: "置信度",
-    connecting: "连接中",
+    connecting: "连接中...",
     couldNotLoadAlerts: "无法加载宏观预警。",
     couldNotLoadTimeline: "无法加载历史简报。",
     currentRegime: "当前市场状态",
@@ -164,6 +166,7 @@ const translations = {
     keyDrivers: "关键驱动",
     keySignals: "关键信号",
     language: "语言",
+    live: "实时",
     liveAlerts: "实时预警",
     liveNewsUnavailable: "实时宏观新闻暂时不可用。",
     loading: "加载中",
@@ -182,6 +185,7 @@ const translations = {
     newsUnavailable: "新闻不可用",
     offlineSnapshot: "离线快照",
     offlineSnapshotShown: "已显示离线快照。重新连接后可生成最新分析。",
+    fallbackData: "备用数据",
     overallView: "总体观点",
     promptDollar: "美元走强对股票意味着什么？",
     promptGold: "未来 3 个月黄金是否偏多？",
@@ -285,12 +289,21 @@ function applyLanguage() {
     }
   });
 
-  const refreshStatus = document.querySelector("#refreshStatus span:last-child");
-  if (
-    refreshStatus &&
-    [translations.en.connecting, translations.zh.connecting].includes(refreshStatus.textContent.trim())
-  ) {
-    refreshStatus.textContent = t("connecting");
+  const refreshPill = document.querySelector("#refreshStatus");
+  const refreshStatus = refreshPill?.querySelector("span:last-child");
+  if (refreshPill && refreshStatus) {
+    if (refreshPill.classList.contains("status-loading")) {
+      refreshStatus.textContent = t("connecting");
+    } else if (refreshPill.classList.contains("status-fallback")) {
+      refreshStatus.textContent = t("fallbackData");
+    } else if (refreshPill.classList.contains("status-error")) {
+      refreshStatus.textContent = t("dataUnavailable");
+    } else if (refreshPill.classList.contains("status-live")) {
+      const time = refreshStatus.textContent.match(/\d{1,2}:\d{2}(?:\s?[AP]M)?/i)?.[0];
+      if (time) {
+        refreshStatus.textContent = `${t("live")} • ${t("updated")} ${time}`;
+      }
+    }
   }
 
   const analystProvider = document.querySelector("#analystProvider");
@@ -920,8 +933,14 @@ function renderNews(payload) {
   })}`;
 }
 
-function setStatus(text) {
-  document.querySelector("#refreshStatus").lastChild.textContent = ` ${text}`;
+function setStatus(text, state = "loading") {
+  const pill = document.querySelector("#refreshStatus");
+  const label = pill?.querySelector("span:last-child");
+  if (!pill || !label) return;
+
+  pill.classList.remove("status-loading", "status-live", "status-fallback", "status-error");
+  pill.classList.add(`status-${state}`);
+  label.textContent = text;
 }
 
 async function refreshMarkets() {
@@ -931,12 +950,14 @@ async function refreshMarkets() {
     renderCharts(payload.markets);
     renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
-    setStatus(`${fromCache ? t("offlineSnapshot") : t("updated")} ${new Date(payload.updatedAt).toLocaleTimeString([], {
+    const isFallback = fromCache || payload.degraded || payload.providerStatus?.marketData === "fallback";
+    const updatedTime = new Date(payload.updatedAt).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
-    })}`);
+    });
+    setStatus(isFallback ? t("fallbackData") : `${t("live")} • ${t("updated")} ${updatedTime}`, isFallback ? "fallback" : "live");
   } catch (error) {
-    setStatus(latestMarkets.length ? t("offlineSnapshot") : t("dataUnavailable"));
+    setStatus(latestMarkets.length ? t("fallbackData") : t("dataUnavailable"), latestMarkets.length ? "fallback" : "error");
     if (!latestMarkets.length) {
       document.querySelector("#marketSummary").textContent =
         t("marketDataUnavailable");

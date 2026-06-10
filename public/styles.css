@@ -189,6 +189,26 @@ h2 {
   box-shadow: 0 0 0 6px rgba(73, 214, 143, 0.14);
 }
 
+.status-loading .pulse {
+  background: var(--gold);
+  box-shadow: 0 0 0 6px rgba(244, 191, 79, 0.14);
+}
+
+.status-live .pulse {
+  background: var(--green);
+  box-shadow: 0 0 0 6px rgba(73, 214, 143, 0.14);
+}
+
+.status-fallback .pulse {
+  background: #ff9f43;
+  box-shadow: 0 0 0 6px rgba(255, 159, 67, 0.14);
+}
+
+.status-error .pulse {
+  background: var(--red);
+  box-shadow: 0 0 0 6px rgba(255, 111, 125, 0.14);
+}
+
 .hero-subtitle {
   max-width: 760px;
   margin-bottom: 10px;
