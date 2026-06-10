@@ -35,6 +35,19 @@ Macro Radar is a deployed full-stack macroeconomic intelligence platform that in
 - `GET /api/alerts`
 - `POST /api/analyze`
 
+## Mobile App Packaging
+
+Macro Radar includes PWA support through `public/manifest.json`, `public/sw.js`, and install metadata in `public/index.html`, so users can add the app to a mobile home screen from supported browsers.
+
+The project is also configured with Capacitor for native iOS and Android packaging:
+
+- App name: `Macro Radar`
+- App ID: `com.jiankaili.macroradar`
+- Web directory: `public`
+- Server URL: `https://macro-radar-eight.vercel.app`
+
+The native projects are generated in `ios/` and `android/`. Run `npm run cap:sync` after web changes, then use `npm run cap:ios` to open Xcode or `npm run cap:android` to open Android Studio.
+
 ## Recruiter Summary
 
 Macro Radar is a deployed full-stack analytics product, not a class assignment. It combines backend API design, external data ingestion, frontend dashboard development, macro logic, alerting, resilient provider fallbacks, and AI-generated analysis in a lightweight production-ready architecture.

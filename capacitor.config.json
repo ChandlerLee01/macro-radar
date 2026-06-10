@@ -1,0 +1,9 @@
+{
+  "appId": "com.jiankaili.macroradar",
+  "appName": "Macro Radar",
+  "webDir": "public",
+  "server": {
+    "url": "https://macro-radar-eight.vercel.app",
+    "cleartext": false
+  }
+}
