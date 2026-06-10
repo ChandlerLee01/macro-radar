@@ -32,6 +32,19 @@ const YAHOO_SYMBOLS = {
   dxy: "DX-Y.NYB",
   tenYear: "^TNX",
 };
+const WATCHLIST_YAHOO_SYMBOLS = {
+  SPX: { symbol: "^GSPC", label: "S&P 500", formatter: "index" },
+  NASDAQ: { symbol: "QQQ", label: "NASDAQ", formatter: "currency" },
+  BTC: { symbol: "BTC-USD", label: "Bitcoin", formatter: "currency" },
+  ETH: { symbol: "ETH-USD", label: "Ethereum", formatter: "currency" },
+  Gold: { symbol: "GC=F", label: "Gold", formatter: "currency" },
+  Silver: { symbol: "SI=F", label: "Silver", formatter: "currency" },
+  DXY: { symbol: "DX-Y.NYB", label: "US Dollar Index", formatter: "index" },
+  EURUSD: { symbol: "EURUSD=X", label: "EUR/USD", formatter: "fx4" },
+  USDJPY: { symbol: "JPY=X", label: "USD/JPY", formatter: "fx2" },
+  WTI: { symbol: "CL=F", label: "WTI Crude", formatter: "currency" },
+  US10Y: { symbol: "^TNX", label: "US 10Y Treasury", formatter: "yield" },
+};
 const TREASURY_URL = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${new Date().getFullYear()}`;
 const NEWS_TOPICS = [
   "Federal Reserve",
@@ -300,6 +313,15 @@ function formatPct(value) {
 function formatBps(value) {
   if (!Number.isFinite(value)) return "N/A";
   return `${value >= 0 ? "+" : ""}${Math.round(value)} bps`;
+}
+
+function formatWatchlistValue(value, formatter) {
+  if (!Number.isFinite(value)) return "N/A";
+  if (formatter === "yield") return `${(value / 10).toFixed(2)}%`;
+  if (formatter === "fx4") return value.toFixed(4);
+  if (formatter === "fx2") return value.toFixed(2);
+  if (formatter === "currency") return currency(value);
+  return indexValue(value);
 }
 
 function sourceTime(row) {
@@ -1248,6 +1270,57 @@ async function fetchYahooAsset(symbol, label) {
   return parseYahooResult(payload, symbol, label);
 }
 
+async function fetchYahooWatchlistQuote(id, config) {
+  const parsed = await fetchYahooAsset(config.symbol, config.label);
+  const open = num(parsed.row.Open);
+  const close = num(parsed.row.Close);
+  const change = pctChange(close, open);
+  if (!Number.isFinite(close) || !Number.isFinite(change)) {
+    throw new Error(`Yahoo ${config.symbol} returned invalid watchlist quote`);
+  }
+
+  return {
+    id,
+    name: config.label,
+    symbol: config.symbol,
+    provider: "Yahoo Finance",
+    value: formatWatchlistValue(close, config.formatter),
+    change: formatPct(change),
+    rawChange: change,
+    down: change < 0,
+    updatedAt: parsed.row.Date,
+  };
+}
+
+async function fetchYahooWatchlistQuotes() {
+  const entries = await Promise.all(
+    Object.entries(WATCHLIST_YAHOO_SYMBOLS).map(async ([id, config]) => {
+      try {
+        return [id, await fetchYahooWatchlistQuote(id, config)];
+      } catch (error) {
+        console.error(`Yahoo watchlist ${id} unavailable: ${error.message}`);
+        return [
+          id,
+          {
+            id,
+            name: config.label,
+            symbol: config.symbol,
+            provider: "Yahoo Finance",
+            value: "--",
+            change: "--",
+            rawChange: null,
+            down: false,
+            unavailable: true,
+            error: error.message,
+          },
+        ];
+      }
+    }),
+  );
+
+  return Object.fromEntries(entries);
+}
+
 async function fetchYahooMarketData() {
   const [gold, spx, dxy] = await Promise.all([
     fetchYahooAsset(YAHOO_SYMBOLS.gold, "Gold futures"),
@@ -1454,6 +1527,12 @@ async function buildMarketPayload({ quotes, treasury, history, providerStatus })
   const aiSummary = providerStatus.marketData === "fallback"
     ? { ...buildSummary(built.markets), summaryProvider: "local-fallback" }
     : await generateAiSummary(built.markets);
+  let watchlistQuotes = {};
+  try {
+    watchlistQuotes = await fetchYahooWatchlistQuotes();
+  } catch (error) {
+    console.error(`Yahoo watchlist provider unavailable: ${error.message}`);
+  }
 
   return {
     updatedAt: new Date().toISOString(),
@@ -1461,6 +1540,7 @@ async function buildMarketPayload({ quotes, treasury, history, providerStatus })
     regime: built.regime,
     ...aiSummary,
     aiDailyBrief: buildAiDailyBrief(built.markets, built.regime, aiSummary),
+    watchlistQuotes,
     sources: providerStatus.sources,
     degraded: providerStatus.marketData === "fallback",
     providerStatus,

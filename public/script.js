@@ -9,15 +9,15 @@ const WATCHLIST_KEY = "macro-radar:watchlist";
 const DEFAULT_LANGUAGE = "en";
 const WATCHLIST_ASSETS = [
   { id: "SPX", name: "S&P 500", marketId: "spx" },
-  { id: "NASDAQ", name: "NASDAQ" },
-  { id: "BTC", name: "Bitcoin" },
-  { id: "ETH", name: "Ethereum" },
+  { id: "NASDAQ", name: "NASDAQ", providerSymbol: "QQQ" },
+  { id: "BTC", name: "Bitcoin", providerSymbol: "BTC-USD" },
+  { id: "ETH", name: "Ethereum", providerSymbol: "ETH-USD" },
   { id: "Gold", name: "Gold", marketId: "gold" },
-  { id: "Silver", name: "Silver" },
+  { id: "Silver", name: "Silver", providerSymbol: "SI=F" },
   { id: "DXY", name: "US Dollar Index", marketId: "dxy" },
-  { id: "EURUSD", name: "EUR/USD" },
-  { id: "USDJPY", name: "USD/JPY" },
-  { id: "WTI", name: "WTI Crude" },
+  { id: "EURUSD", name: "EUR/USD", providerSymbol: "EURUSD=X" },
+  { id: "USDJPY", name: "USD/JPY", providerSymbol: "JPY=X" },
+  { id: "WTI", name: "WTI Crude", providerSymbol: "CL=F" },
   { id: "US10Y", name: "US 10Y Treasury", marketId: "tenYear" },
 ];
 const translations = {
@@ -274,6 +274,7 @@ const translations = {
 };
 const chartPeriods = {};
 let latestMarkets = [];
+let latestWatchlistQuotes = {};
 let watchlistAssetIds = readStoredWatchlist();
 let currentLanguage = readStoredLanguage();
 
@@ -654,6 +655,16 @@ function renderMetrics(marketData) {
 }
 
 function watchlistQuote(asset) {
+  const quote = latestWatchlistQuotes[asset.id];
+  if (quote && !quote.unavailable) {
+    return {
+      value: quote.value,
+      change: quote.change,
+      down: Boolean(quote.down),
+      unavailable: false,
+    };
+  }
+
   const market = asset.marketId ? findMarket(latestMarkets, asset.marketId) : null;
   if (!market) {
     return {
@@ -1209,6 +1220,7 @@ function setStatus(text, state = "loading") {
 async function refreshMarkets() {
   try {
     const { payload, fromCache } = await fetchJsonWithSnapshot("/api/markets", "markets");
+    latestWatchlistQuotes = payload.watchlistQuotes || {};
     renderMetrics(payload.markets);
     renderCharts(payload.markets);
     renderWatchlist();
