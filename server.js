@@ -48,8 +48,17 @@ const mimeTypes = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".json": "application/manifest+json; charset=utf-8",
+  ".svg": "image/svg+xml; charset=utf-8",
 };
-const staticFiles = new Set(["/index.html", "/styles.css", "/script.js"]);
+const staticFiles = new Set([
+  "/index.html",
+  "/styles.css",
+  "/script.js",
+  "/manifest.json",
+  "/sw.js",
+  "/icon.svg",
+]);
 
 let cache = null;
 let cacheTime = 0;

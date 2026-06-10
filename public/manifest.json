@@ -1,0 +1,27 @@
+{
+  "name": "Macro Radar",
+  "short_name": "Macro Radar",
+  "description": "AI-powered macroeconomic intelligence for market regimes, macro signals, alerts, and research analysis.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080b10",
+  "theme_color": "#080b10",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Market Dashboard",
+      "short_name": "Markets",
+      "url": "/"
+    }
+  ]
+}

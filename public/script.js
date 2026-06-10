@@ -2,8 +2,45 @@ const REFRESH_MS = 60_000;
 const NEWS_REFRESH_MS = 120_000;
 const BRIEF_REFRESH_MS = 300_000;
 const ALERT_REFRESH_MS = 60_000;
+const API_CACHE_PREFIX = "macro-radar:api:";
+const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
 const chartPeriods = {};
 let latestMarkets = [];
+
+function readCachedPayload(key) {
+  try {
+    const cached = localStorage.getItem(`${API_CACHE_PREFIX}${key}`);
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedPayload(key, payload) {
+  try {
+    localStorage.setItem(`${API_CACHE_PREFIX}${key}`, JSON.stringify(payload));
+  } catch {
+    // Storage can be unavailable in private browsing; the live app should continue.
+  }
+}
+
+async function fetchJsonWithSnapshot(url, cacheKey, options = {}) {
+  try {
+    const response = await fetch(url, { cache: "no-store", ...options });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || `${url} returned ${response.status}`);
+    }
+    writeCachedPayload(cacheKey, payload);
+    return { payload, fromCache: false };
+  } catch (error) {
+    const cached = readCachedPayload(cacheKey);
+    if (cached) {
+      return { payload: cached, fromCache: true, error };
+    }
+    throw error;
+  }
+}
 
 function escapeHtml(value = "") {
   return value.replace(/[&<>"']/g, (character) => {
@@ -312,9 +349,18 @@ async function generateAnalysis(question) {
       throw new Error(payload.error || `Analyze API returned ${response.status}`);
     }
 
+    writeCachedPayload(ANALYST_CACHE_KEY, payload);
     renderAnalystResult(payload);
   } catch (error) {
-    renderAnalystError(error.message);
+    const cached = readCachedPayload(ANALYST_CACHE_KEY);
+    if (cached) {
+      renderAnalystResult(cached);
+      document.querySelector("#analystStatus").textContent =
+        "Offline snapshot shown. Reconnect to generate fresh analysis.";
+      document.querySelector("#analystProvider").textContent = "Cached";
+    } else {
+      renderAnalystError(error.message);
+    }
     console.error(error);
   } finally {
     submitButton.disabled = false;
@@ -551,36 +597,32 @@ function setStatus(text) {
 
 async function refreshMarkets() {
   try {
-    const response = await fetch("/api/markets", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Market API returned ${response.status}`);
-    }
-
-    const payload = await response.json();
+    const { payload, fromCache } = await fetchJsonWithSnapshot("/api/markets", "markets");
     renderMetrics(payload.markets);
     renderCharts(payload.markets);
     renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
-    setStatus(`Updated ${new Date(payload.updatedAt).toLocaleTimeString([], {
+    setStatus(`${fromCache ? "Offline snapshot" : "Updated"} ${new Date(payload.updatedAt).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     })}`);
   } catch (error) {
-    setStatus("Data unavailable");
-    document.querySelector("#marketSummary").textContent =
-      "Live market data is temporarily unavailable. The dashboard will retry automatically every 60 seconds.";
+    setStatus(latestMarkets.length ? "Offline snapshot" : "Data unavailable");
+    if (!latestMarkets.length) {
+      document.querySelector("#marketSummary").textContent =
+        "Live market data is temporarily unavailable. The dashboard will retry automatically every 60 seconds.";
+    }
     console.error(error);
   }
 }
 
 async function refreshNews() {
   try {
-    const response = await fetch("/api/news", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`News API returned ${response.status}`);
+    const { payload, fromCache } = await fetchJsonWithSnapshot("/api/news", "news");
+    renderNews(payload);
+    if (fromCache) {
+      document.querySelector("#newsStatus").textContent = "Offline snapshot";
     }
-
-    renderNews(await response.json());
   } catch (error) {
     document.querySelector("#newsStatus").textContent = "News unavailable";
     document.querySelector("#newsList").innerHTML = `
@@ -598,12 +640,11 @@ async function refreshNews() {
 
 async function refreshBrief() {
   try {
-    const response = await fetch("/api/brief", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Brief API returned ${response.status}`);
+    const { payload, fromCache } = await fetchJsonWithSnapshot("/api/brief", "brief");
+    renderBrief(payload);
+    if (fromCache) {
+      document.querySelector("#briefStatus").textContent = "Offline snapshot";
     }
-
-    renderBrief(await response.json());
     refreshTimeline();
   } catch (error) {
     document.querySelector("#briefStatus").textContent = "Brief unavailable";
@@ -615,12 +656,11 @@ async function refreshBrief() {
 
 async function refreshTimeline() {
   try {
-    const response = await fetch("/api/timeline", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Timeline API returned ${response.status}`);
+    const { payload, fromCache } = await fetchJsonWithSnapshot("/api/timeline", "timeline");
+    renderTimeline(payload);
+    if (fromCache) {
+      document.querySelector("#timelineStatus").textContent = "Offline snapshot";
     }
-
-    renderTimeline(await response.json());
   } catch (error) {
     document.querySelector("#timelineStatus").textContent = "Timeline unavailable";
     document.querySelector("#timelineList").innerHTML = `
@@ -635,12 +675,11 @@ async function refreshTimeline() {
 
 async function refreshAlerts() {
   try {
-    const response = await fetch("/api/alerts", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Alerts API returned ${response.status}`);
+    const { payload, fromCache } = await fetchJsonWithSnapshot("/api/alerts", "alerts");
+    renderAlerts(payload);
+    if (fromCache) {
+      document.querySelector("#alertsStatus").textContent = "Offline snapshot";
     }
-
-    renderAlerts(await response.json());
   } catch (error) {
     document.querySelector("#alertsStatus").textContent = "Alerts unavailable";
     document.querySelector("#alertsList").innerHTML = `
@@ -698,6 +737,14 @@ document.addEventListener("click", (event) => {
   document.querySelector("#analystQuestion").value = button.dataset.examplePrompt;
   document.querySelector("#analystQuestion").focus();
 });
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.error("Service worker registration failed", error);
+    });
+  });
+}
 
 renderLoading();
 renderNewsLoading();

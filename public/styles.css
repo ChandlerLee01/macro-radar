@@ -20,6 +20,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 20% 0%, rgba(47, 118, 255, 0.16), transparent 28rem),
     linear-gradient(180deg, #0b1018 0%, var(--bg) 52%);
@@ -30,7 +31,7 @@ body {
 .dashboard {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 40px 0;
+  padding: max(40px, env(safe-area-inset-top)) max(0px, env(safe-area-inset-right)) max(40px, env(safe-area-inset-bottom)) max(0px, env(safe-area-inset-left));
 }
 
 .topbar {
@@ -1168,13 +1169,69 @@ h2 {
 
 @media (max-width: 640px) {
   .dashboard {
-    width: min(100% - 24px, 1180px);
-    padding: 24px 0;
+    width: min(100% - 20px, 1180px);
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
   }
 
   .topbar,
   .section-heading {
     flex-direction: column;
+    gap: 12px;
+  }
+
+  .topbar {
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    margin-bottom: 12px;
+    font-size: 2.15rem;
+    line-height: 1;
+  }
+
+  h2 {
+    font-size: 1.04rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .status-pill,
+  .tag {
+    min-height: 32px;
+    padding: 0 11px;
+    font-size: 0.78rem;
+    white-space: normal;
+  }
+
+  .analyst-panel,
+  .regime-panel,
+  .alerts-panel,
+  .summary-panel,
+  .watch-panel,
+  .brief-panel,
+  .timeline-panel,
+  .news-panel {
+    padding: 16px;
+  }
+
+  .analyst-form textarea {
+    min-height: 104px;
+    font-size: 16px;
+    padding: 13px;
+  }
+
+  .prompt-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .prompt-row button,
+  .primary-button {
+    width: 100%;
   }
 
   .metrics-grid,
@@ -1207,6 +1264,16 @@ h2 {
     height: 170px;
   }
 
+  .result-kicker,
+  .eyebrow {
+    letter-spacing: 0.08em;
+  }
+
+  .view-card strong,
+  .regime-label {
+    font-size: 1.75rem;
+  }
+
   .analyst-actions {
     align-items: stretch;
     flex-direction: column;
@@ -1223,7 +1290,16 @@ h2 {
   }
 
   .metric-card {
-    min-height: 210px;
+    min-height: 190px;
+    padding: 16px;
+  }
+
+  .metric-value {
+    font-size: 1.7rem;
+  }
+
+  .sparkline {
+    margin-top: 18px;
   }
 
   .news-item {
@@ -1238,5 +1314,45 @@ h2 {
 
   .news-source > div {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard {
+    width: min(100% - 16px, 1180px);
+  }
+
+  h1 {
+    font-size: 1.9rem;
+  }
+
+  .analyst-panel,
+  .regime-panel,
+  .alerts-panel,
+  .summary-panel,
+  .watch-panel,
+  .brief-panel,
+  .timeline-panel,
+  .news-panel,
+  .chart-card {
+    padding: 14px;
+  }
+
+  .metric-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 0.78rem;
+  }
+
+  .chart-value {
+    font-size: 1.35rem;
+  }
+
+  .period-toggle {
+    width: 100%;
+  }
+
+  .period-toggle button {
+    flex: 1;
   }
 }

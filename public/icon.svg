@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Macro Radar">
+  <rect width="512" height="512" rx="96" fill="#080b10"/>
+  <path d="M88 338h336" stroke="#223044" stroke-width="24" stroke-linecap="round"/>
+  <path d="M112 326c52-86 104-70 144-26 46 51 92 61 144-96" fill="none" stroke="#67a7ff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="156" fill="none" stroke="#223044" stroke-width="18"/>
+  <circle cx="256" cy="256" r="86" fill="none" stroke="#f4bf4f" stroke-width="16" stroke-dasharray="34 28"/>
+  <circle cx="400" cy="204" r="22" fill="#49d68f"/>
+  <text x="256" y="386" fill="#edf3fb" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800" text-anchor="middle">MR</text>
+</svg>
