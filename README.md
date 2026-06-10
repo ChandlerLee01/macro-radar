@@ -35,6 +35,23 @@ Macro Radar is a deployed full-stack macroeconomic intelligence platform that in
 - `GET /api/alerts`
 - `POST /api/analyze`
 
+## Market Data Providers
+
+Macro Radar uses a provider chain for production market data:
+
+1. **Alpha Vantage** for market assets such as `SPY`, `GLD`, and `UUP` proxies.
+2. **FRED** for the US 10Y Treasury yield series `DGS10`.
+3. **Yahoo Finance chart API** as a backup provider for market assets and chart history.
+4. **U.S. Treasury yield curve XML** as a backup rates source.
+5. **Local fallback data** only when real providers are unavailable.
+
+Required environment variables for the preferred providers:
+
+- `ALPHA_VANTAGE_API_KEY`
+- `FRED_API_KEY`
+
+The app keeps the same `/api/markets` response shape for the dashboard, regime engine, alerts, charts, brief, and AI Macro Analyst. Provider status is included in the response so production can distinguish live, backup, and fallback sources.
+
 ## Mobile App Packaging
 
 Macro Radar includes PWA support through `public/manifest.json`, `public/sw.js`, and install metadata in `public/index.html`, so users can add the app to a mobile home screen from supported browsers.

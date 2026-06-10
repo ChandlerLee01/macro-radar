@@ -21,6 +21,17 @@ const STOOQ_HISTORY_URLS = {
   spx: "https://stooq.com/q/d/l/?s=%5Espx&i=d",
   dxy: "https://stooq.com/q/d/l/?s=dx.f&i=d",
 };
+const ALPHA_VANTAGE_SYMBOLS = {
+  gold: "GLD",
+  spx: "SPY",
+  dxy: "UUP",
+};
+const YAHOO_SYMBOLS = {
+  gold: "GC=F",
+  spx: "^GSPC",
+  dxy: "DX-Y.NYB",
+  tenYear: "^TNX",
+};
 const TREASURY_URL = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${new Date().getFullYear()}`;
 const NEWS_TOPICS = [
   "Federal Reserve",
@@ -913,6 +924,206 @@ function fallbackTreasuryEntries() {
   }));
 }
 
+function providerRow({ open, high, low, close, date, time, detail }) {
+  if (![open, high, low, close].every(Number.isFinite)) {
+    throw new Error("Provider row is missing price fields");
+  }
+
+  return {
+    Open: String(open),
+    High: String(high),
+    Low: String(low),
+    Close: String(close),
+    Date: date || localDateKey(),
+    Time: time || "",
+    Detail: detail,
+  };
+}
+
+function alphaVantageUrl(params) {
+  const url = new URL("https://www.alphavantage.co/query");
+  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+  url.searchParams.set("apikey", process.env.ALPHA_VANTAGE_API_KEY);
+  return url.toString();
+}
+
+async function fetchJson(url, label, options = {}) {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error(`${label} returned ${response.status}`);
+  const payload = await response.json();
+  if (payload.Note || payload.Information || payload["Error Message"]) {
+    throw new Error(payload.Note || payload.Information || payload["Error Message"]);
+  }
+  return payload;
+}
+
+async function fetchAlphaVantageQuote(symbol, id) {
+  if (!process.env.ALPHA_VANTAGE_API_KEY) {
+    throw new Error("ALPHA_VANTAGE_API_KEY is not configured");
+  }
+
+  const payload = await fetchJson(
+    alphaVantageUrl({ function: "GLOBAL_QUOTE", symbol }),
+    `Alpha Vantage ${symbol}`,
+  );
+  const quote = payload["Global Quote"];
+  if (!quote) throw new Error(`Alpha Vantage returned no quote for ${symbol}`);
+
+  return providerRow({
+    open: num(quote["02. open"]),
+    high: num(quote["03. high"]),
+    low: num(quote["04. low"]),
+    close: num(quote["05. price"]),
+    date: quote["07. latest trading day"],
+    time: "Alpha Vantage",
+    detail: `${symbol} ${id === "spx" ? "ETF proxy" : id === "gold" ? "ETF proxy" : "dollar ETF proxy"}, Alpha Vantage`,
+  });
+}
+
+async function fetchAlphaVantageQuotes() {
+  if (!process.env.ALPHA_VANTAGE_API_KEY) {
+    return {
+      quotes: {},
+      status: "not_configured",
+      error: "ALPHA_VANTAGE_API_KEY is not configured",
+    };
+  }
+
+  const results = await Promise.allSettled(
+    Object.entries(ALPHA_VANTAGE_SYMBOLS).map(async ([id, symbol]) => [
+      id,
+      await fetchAlphaVantageQuote(symbol, id),
+    ]),
+  );
+  const quotes = {};
+  const errors = [];
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      const [id, row] = result.value;
+      quotes[id] = row;
+    } else {
+      errors.push(result.reason.message);
+    }
+  }
+
+  const quoteCount = Object.keys(quotes).length;
+  return {
+    quotes,
+    status: quoteCount === 3 ? "live" : quoteCount > 0 ? "fallback" : "error",
+    error: errors.join("; "),
+  };
+}
+
+function yahooChartUrl(symbol, range = "7d", interval = "1d") {
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("range", range);
+  url.searchParams.set("interval", interval);
+  return url.toString();
+}
+
+function parseYahooResult(payload, symbol, label) {
+  const result = payload.chart?.result?.[0];
+  if (!result) {
+    const message = payload.chart?.error?.description || `Yahoo returned no chart for ${symbol}`;
+    throw new Error(message);
+  }
+
+  const quote = result.indicators?.quote?.[0] || {};
+  const timestamps = result.timestamp || [];
+  const points = timestamps
+    .map((timestamp, index) => ({
+      date: localDateKey(new Date(timestamp * 1000)),
+      open: num(quote.open?.[index]),
+      high: num(quote.high?.[index]),
+      low: num(quote.low?.[index]),
+      close: num(quote.close?.[index]),
+    }))
+    .filter((point) => Number.isFinite(point.close));
+
+  if (!points.length) throw new Error(`Yahoo returned no usable prices for ${symbol}`);
+  const latest = points.at(-1);
+
+  return {
+    row: providerRow({
+      open: Number.isFinite(latest.open) ? latest.open : latest.close,
+      high: Number.isFinite(latest.high) ? latest.high : latest.close,
+      low: Number.isFinite(latest.low) ? latest.low : latest.close,
+      close: latest.close,
+      date: latest.date,
+      time: "Yahoo Finance",
+      detail: `${label}, Yahoo Finance`,
+    }),
+    history: points.map((point) => ({
+      Date: point.date,
+      Close: String(point.close),
+    })),
+  };
+}
+
+async function fetchYahooAsset(symbol, label) {
+  const payload = await fetchJson(yahooChartUrl(symbol), `Yahoo ${symbol}`);
+  return parseYahooResult(payload, symbol, label);
+}
+
+async function fetchYahooMarketData() {
+  const [gold, spx, dxy] = await Promise.all([
+    fetchYahooAsset(YAHOO_SYMBOLS.gold, "Gold futures"),
+    fetchYahooAsset(YAHOO_SYMBOLS.spx, "S&P 500 index"),
+    fetchYahooAsset(YAHOO_SYMBOLS.dxy, "US Dollar Index"),
+  ]);
+
+  return {
+    quotes: {
+      gold: gold.row,
+      spx: spx.row,
+      dxy: dxy.row,
+    },
+    history: {
+      gold: gold.history,
+      spx: spx.history,
+      dxy: dxy.history,
+    },
+  };
+}
+
+async function fetchFredTreasuryEntries() {
+  if (!process.env.FRED_API_KEY) {
+    throw new Error("FRED_API_KEY is not configured");
+  }
+
+  const url = new URL("https://api.stlouisfed.org/fred/series/observations");
+  url.searchParams.set("series_id", "DGS10");
+  url.searchParams.set("api_key", process.env.FRED_API_KEY);
+  url.searchParams.set("file_type", "json");
+  url.searchParams.set("sort_order", "desc");
+  url.searchParams.set("limit", "14");
+
+  const payload = await fetchJson(url.toString(), "FRED DGS10");
+  const entries = (payload.observations || [])
+    .map((entry) => ({
+      date: entry.date,
+      tenYear: num(entry.value),
+    }))
+    .filter((entry) => entry.date && Number.isFinite(entry.tenYear))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (entries.length < 2) throw new Error("FRED DGS10 returned incomplete data");
+  return entries;
+}
+
+async function fetchYahooTreasuryEntries() {
+  const payload = await fetchJson(yahooChartUrl(YAHOO_SYMBOLS.tenYear), "Yahoo 10Y Treasury yield");
+  const parsed = parseYahooResult(payload, YAHOO_SYMBOLS.tenYear, "CBOE 10Y Treasury yield proxy");
+  const entries = parsed.history.map((point) => ({
+    date: point.Date,
+    tenYear: num(point.Close) / 10,
+  })).filter((entry) => entry.date && Number.isFinite(entry.tenYear));
+
+  if (entries.length < 2) throw new Error("Yahoo 10Y proxy returned incomplete data");
+  return entries;
+}
+
 function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
   const latestYield = treasury.at(-1);
   const previousYield = treasury.at(-2);
@@ -933,7 +1144,7 @@ function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
       value: currency(num(gold.Close)),
       change: changeText(goldMove),
       rawChange: goldMove,
-      detail: `XAU/USD spot, ${sourceTime(gold)}`,
+      detail: gold.Detail || `XAU/USD spot, ${sourceTime(gold)}`,
       accent: "#f4bf4f",
       trend: marketTrend(gold),
       charts: {
@@ -949,7 +1160,7 @@ function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
       value: indexValue(num(spx.Close)),
       change: changeText(spxMove),
       rawChange: spxMove,
-      detail: `S&P 500 index, ${sourceTime(spx)}`,
+      detail: spx.Detail || `S&P 500 index, ${sourceTime(spx)}`,
       accent: "#49d68f",
       trend: marketTrend(spx),
       charts: {
@@ -965,7 +1176,7 @@ function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
       value: indexValue(num(dxy.Close)),
       change: changeText(dxyMove),
       rawChange: dxyMove,
-      detail: `DXY futures proxy, ${sourceTime(dxy)}`,
+      detail: dxy.Detail || `DXY futures proxy, ${sourceTime(dxy)}`,
       accent: "#67a7ff",
       trend: marketTrend(dxy),
       charts: {
@@ -1045,12 +1256,12 @@ async function buildMarketPayload({ quotes, treasury, history, providerStatus })
     regime: built.regime,
     ...aiSummary,
     sources: providerStatus.sources,
-    degraded: providerStatus.marketData === "fallback" || providerStatus.errors.length > 0,
+    degraded: providerStatus.marketData === "fallback",
     providerStatus,
   };
 }
 
-async function buildFallbackMarketPayload(reason) {
+async function buildFallbackMarketPayload(reason, providerStatus = {}) {
   return buildMarketPayload({
     quotes: fallbackQuoteRows(),
     treasury: fallbackTreasuryEntries(),
@@ -1061,11 +1272,16 @@ async function buildFallbackMarketPayload(reason) {
     },
     providerStatus: {
       marketData: "fallback",
+      alphaVantage: providerStatus.alphaVantage || "not_configured",
+      alphaVantageError: providerStatus.alphaVantageError || "",
+      yahoo: providerStatus.yahoo || "unavailable",
       stooq: "fallback",
       treasury: "fallback",
       history: "fallback",
       sources: ["Local degraded market fallback", "Local Treasury yield fallback"],
-      errors: [reason || "Market data provider unavailable"],
+      errors: providerStatus.errors?.length
+        ? providerStatus.errors
+        : [reason || "Market data provider unavailable"],
     },
   });
 }
@@ -1077,65 +1293,119 @@ async function fetchMarkets() {
 
   marketFetchPromise = (async () => {
     const errors = [];
-    const forceFallback = process.env.MACRO_RADAR_FORCE_STOOQ_FAILURE === "1";
-    const [stooqResult, treasuryResult, goldHistoryResult, spxHistoryResult, dxyHistoryResult] =
-      await Promise.allSettled([
-        forceFallback
-          ? Promise.reject(new Error("Forced Stooq failure for local verification"))
-          : fetchText(STOOQ_URL, "Stooq"),
-        fetchText(TREASURY_URL, "Treasury"),
-        fetchText(STOOQ_HISTORY_URLS.gold, "Gold history"),
-        fetchText(STOOQ_HISTORY_URLS.spx, "S&P history"),
-        fetchText(STOOQ_HISTORY_URLS.dxy, "DXY history"),
-      ]);
+    const providerStatus = {
+      alphaVantage: "not_configured",
+      alphaVantageError: "",
+      yahoo: "not-used",
+      stooq: "not-used",
+      errors,
+    };
+    let quoteRows = {};
+    let history = null;
+    let marketData = "fallback";
+    const marketSources = [];
 
-    let quoteRows = fallbackQuoteRows();
-    let marketData = "live";
-    let stooqStatus = "live";
-    try {
-      if (stooqResult.status !== "fulfilled") throw stooqResult.reason;
-      const stooqQuotes = validateStooqQuotes(stooqResult.value);
-      quoteRows = {
-        gold: stooqQuotes.XAUUSD,
-        spx: stooqQuotes["^SPX"],
-        dxy: stooqQuotes["DX.F"],
-      };
-    } catch (error) {
-      marketData = "fallback";
-      stooqStatus = "fallback";
-      errors.push(`Stooq: ${error.message}`);
-      console.error(`Stooq fallback: ${error.message}`);
+    const alphaResult = await fetchAlphaVantageQuotes();
+    providerStatus.alphaVantage = alphaResult.status;
+    providerStatus.alphaVantageError = alphaResult.error || "";
+    if (providerStatus.alphaVantageError) {
+      errors.push(`Alpha Vantage: ${providerStatus.alphaVantageError}`);
+      console.error(`Alpha Vantage unavailable: ${providerStatus.alphaVantageError}`);
+    }
+    quoteRows = { ...quoteRows, ...alphaResult.quotes };
+    if (Object.keys(alphaResult.quotes).length) {
+      marketSources.push("Alpha Vantage");
     }
 
-    let treasury = fallbackTreasuryEntries();
+    try {
+      const yahooData = await fetchYahooMarketData();
+      history = yahooData.history;
+      const missingIds = ["gold", "spx", "dxy"].filter((id) => !quoteRows[id]);
+      for (const id of missingIds) {
+        quoteRows[id] = yahooData.quotes[id];
+      }
+      providerStatus.yahoo = missingIds.length ? "backup" : "history";
+      marketSources.push(missingIds.length ? "Yahoo Finance backup" : "Yahoo Finance chart history");
+    } catch (error) {
+      providerStatus.yahoo = "error";
+      errors.push(`Yahoo Finance: ${error.message}`);
+      console.error(`Yahoo Finance market backup unavailable: ${error.message}`);
+    }
+
+    if (["gold", "spx", "dxy"].some((id) => !quoteRows[id])) {
+      const forceStooqFailure = process.env.MACRO_RADAR_FORCE_STOOQ_FAILURE === "1";
+      try {
+        if (forceStooqFailure) throw new Error("Forced Stooq failure for local verification");
+        const stooqQuotes = validateStooqQuotes(await fetchText(STOOQ_URL, "Stooq"));
+        if (!quoteRows.gold) quoteRows.gold = stooqQuotes.XAUUSD;
+        if (!quoteRows.spx) quoteRows.spx = stooqQuotes["^SPX"];
+        if (!quoteRows.dxy) quoteRows.dxy = stooqQuotes["DX.F"];
+        providerStatus.stooq = "backup";
+        marketSources.push("Stooq CSV legacy backup");
+      } catch (error) {
+        providerStatus.stooq = "error";
+        errors.push(`Stooq: ${error.message}`);
+        console.error(`Stooq emergency backup unavailable: ${error.message}`);
+      }
+    }
+
+    const fallbackRows = fallbackQuoteRows();
+    const missingAfterRealProviders = ["gold", "spx", "dxy"].filter((id) => !quoteRows[id]);
+    for (const id of missingAfterRealProviders) {
+      quoteRows[id] = fallbackRows[id];
+    }
+    if (missingAfterRealProviders.length === 3) {
+      marketData = "fallback";
+      marketSources.push("Local degraded market fallback");
+    } else if (missingAfterRealProviders.length > 0 || providerStatus.alphaVantage === "fallback") {
+      marketData = "partial-live";
+      marketSources.push("Local fallback for missing market assets");
+    } else {
+      marketData = "live";
+    }
+
+    let treasury = null;
     let treasuryStatus = "live";
     try {
-      if (treasuryResult.status !== "fulfilled") throw treasuryResult.reason;
-      treasury = validateTreasuryEntries(treasuryResult.value);
+      treasury = await fetchFredTreasuryEntries();
+      treasuryStatus = "FRED DGS10";
     } catch (error) {
-      marketData = "fallback";
-      treasuryStatus = "fallback";
-      errors.push(`Treasury: ${error.message}`);
-      console.error(`Treasury fallback: ${error.message}`);
+      errors.push(`FRED: ${error.message}`);
+      console.error(`FRED DGS10 unavailable: ${error.message}`);
     }
 
-    const history = {
-      gold:
-        goldHistoryResult.status === "fulfilled"
-          ? parseOptionalHistory(goldHistoryResult.value, "Gold history", errors)
-          : [],
-      spx:
-        spxHistoryResult.status === "fulfilled"
-          ? parseOptionalHistory(spxHistoryResult.value, "S&P history", errors)
-          : [],
-      dxy:
-        dxyHistoryResult.status === "fulfilled"
-          ? parseOptionalHistory(dxyHistoryResult.value, "DXY history", errors)
-          : [],
-    };
-    if (goldHistoryResult.status === "rejected") errors.push(`Gold history: ${goldHistoryResult.reason.message}`);
-    if (spxHistoryResult.status === "rejected") errors.push(`S&P history: ${spxHistoryResult.reason.message}`);
-    if (dxyHistoryResult.status === "rejected") errors.push(`DXY history: ${dxyHistoryResult.reason.message}`);
+    if (!treasury) {
+      try {
+        treasury = await fetchYahooTreasuryEntries();
+        treasuryStatus = "Yahoo Finance 10Y proxy";
+      } catch (error) {
+        errors.push(`Yahoo 10Y: ${error.message}`);
+        console.error(`Yahoo 10Y backup unavailable: ${error.message}`);
+      }
+    }
+
+    if (!treasury) {
+      try {
+        treasury = validateTreasuryEntries(await fetchText(TREASURY_URL, "Treasury"));
+        treasuryStatus = "U.S. Treasury yield curve XML";
+      } catch (error) {
+        errors.push(`Treasury XML: ${error.message}`);
+        console.error(`Treasury XML backup unavailable: ${error.message}`);
+      }
+    }
+
+    if (!treasury) {
+      treasury = fallbackTreasuryEntries();
+      treasuryStatus = "fallback";
+      if (marketData !== "fallback") {
+        marketData = "partial-live";
+      }
+      errors.push("Treasury: all real Treasury providers failed; using local fallback");
+    }
+
+    if (!history) {
+      history = { gold: [], spx: [], dxy: [] };
+    }
 
     cache = await buildMarketPayload({
       quotes: quoteRows,
@@ -1143,14 +1413,18 @@ async function fetchMarkets() {
       history,
       providerStatus: {
         marketData,
-        stooq: stooqStatus,
+        alphaVantage: providerStatus.alphaVantage,
+        alphaVantageError: providerStatus.alphaVantageError,
+        yahoo: providerStatus.yahoo,
+        stooq: providerStatus.stooq,
         treasury: treasuryStatus,
-        history: errors.some((error) => /history/i.test(error)) ? "partial" : "live",
+        history: history.gold.length && history.spx.length && history.dxy.length ? "live" : "synthetic",
         sources: [
-          stooqStatus === "fallback" ? "Local degraded market fallback" : "Stooq CSV",
-          treasuryStatus === "fallback"
-            ? "Local Treasury yield fallback"
-            : "U.S. Treasury yield curve XML",
+          ...marketSources,
+          treasuryStatus,
+          history.gold.length && history.spx.length && history.dxy.length
+            ? "Yahoo Finance chart history"
+            : "Synthetic chart history from current real quotes",
           "OpenAI Responses API",
         ],
         errors,
