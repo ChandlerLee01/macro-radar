@@ -35,22 +35,34 @@
           <p class="hero-disclaimer" data-i18n="disclaimer">
             For educational and research purposes only. Not financial advice.
           </p>
-          <div class="topbar-actions">
-            <div class="status-pill" id="refreshStatus">
-              <span class="pulse"></span>
-              <span>Connecting</span>
-            </div>
+        </div>
+        <div class="topbar-actions">
+          <div class="status-pill" id="refreshStatus">
+            <span class="pulse"></span>
+            <span>Connecting</span>
+          </div>
+          <div class="language-menu" id="languageMenu">
             <button
-              class="language-toggle"
-              id="languageToggle"
+              class="language-menu-button"
+              id="languageMenuButton"
               type="button"
-              aria-label="Switch language"
-              aria-pressed="false"
+              aria-expanded="false"
+              aria-label="Select language"
             >
-              <span class="language-segment" data-language-option="en">EN</span>
-              <span class="language-divider" aria-hidden="true"></span>
-              <span class="language-segment" data-language-option="zh">中文</span>
+              <span class="language-icon" aria-hidden="true">◎</span>
+              <span data-i18n="language">Language</span>
+              <span class="menu-chevron" aria-hidden="true">⌄</span>
             </button>
+            <div class="language-dropdown" id="languageDropdown" role="menu" hidden>
+              <button type="button" role="menuitem" data-language-choice="en">
+                <span class="language-check" aria-hidden="true"></span>
+                <span data-i18n="englishName">English</span>
+              </button>
+              <button type="button" role="menuitem" data-language-choice="zh">
+                <span class="language-check" aria-hidden="true"></span>
+                <span data-i18n="chineseName">中文</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>

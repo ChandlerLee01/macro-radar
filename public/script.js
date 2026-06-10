@@ -29,6 +29,7 @@ const translations = {
     chartsEyebrow: "Interactive Charts",
     chartsHeading: "1D / 1W Asset Moves",
     checkingThresholds: "Checking current macro thresholds.",
+    chineseName: "中文",
     confidence: "Confidence",
     confidenceLabel: "confidence",
     connecting: "Connecting",
@@ -41,6 +42,7 @@ const translations = {
     disclaimer: "For educational and research purposes only. Not financial advice.",
     enterQuestion: "Enter a macro or market question first.",
     error: "Error",
+    englishName: "English",
     feedRetry: "The feed will retry automatically.",
     fetchingNews: "Fetching live news feed",
     generated: "Generated",
@@ -55,6 +57,7 @@ const translations = {
     hoverEnabled: "Hover Enabled",
     keyDrivers: "Key Drivers",
     keySignals: "Key Signals",
+    language: "Language",
     liveAlerts: "Live Alerts",
     liveNewsUnavailable: "Live macro news is temporarily unavailable.",
     loading: "Loading",
@@ -133,6 +136,7 @@ const translations = {
     chartsEyebrow: "交互图表",
     chartsHeading: "1日 / 1周资产走势",
     checkingThresholds: "正在检查当前宏观阈值。",
+    chineseName: "中文",
     confidence: "置信度",
     confidenceLabel: "置信度",
     connecting: "连接中",
@@ -145,6 +149,7 @@ const translations = {
     disclaimer: "仅供教育和研究用途。不构成投资建议。",
     enterQuestion: "请先输入一个宏观或市场问题。",
     error: "错误",
+    englishName: "English",
     feedRetry: "新闻流将自动重试。",
     fetchingNews: "正在获取实时新闻",
     generated: "已生成",
@@ -158,6 +163,7 @@ const translations = {
     hoverEnabled: "支持悬停",
     keyDrivers: "关键驱动",
     keySignals: "关键信号",
+    language: "语言",
     liveAlerts: "实时预警",
     liveNewsUnavailable: "实时宏观新闻暂时不可用。",
     loading: "加载中",
@@ -264,13 +270,20 @@ function applyLanguage() {
     element.dataset.examplePrompt = t(element.dataset.i18nPrompt);
   });
 
-  const toggle = document.querySelector("#languageToggle");
-  if (toggle) {
-    toggle.setAttribute("aria-pressed", currentLanguage === "zh" ? "true" : "false");
-    toggle.querySelectorAll("[data-language-option]").forEach((option) => {
-      option.classList.toggle("active", option.dataset.languageOption === currentLanguage);
-    });
+  const languageButton = document.querySelector("#languageMenuButton");
+  if (languageButton) {
+    languageButton.setAttribute("aria-label", t("language"));
   }
+
+  document.querySelectorAll("[data-language-choice]").forEach((option) => {
+    const isActive = option.dataset.languageChoice === currentLanguage;
+    option.classList.toggle("active", isActive);
+    option.setAttribute("aria-current", isActive ? "true" : "false");
+    const check = option.querySelector(".language-check");
+    if (check) {
+      check.textContent = isActive ? "✓" : "";
+    }
+  });
 
   const refreshStatus = document.querySelector("#refreshStatus span:last-child");
   if (
@@ -289,10 +302,39 @@ function applyLanguage() {
   }
 }
 
-function toggleLanguage() {
-  currentLanguage = currentLanguage === "zh" ? "en" : "zh";
+function setLanguage(language) {
+  if (!translations[language]) return;
+  currentLanguage = language;
   saveLanguage(currentLanguage);
   applyLanguage();
+}
+
+function closeLanguageDropdown() {
+  const menu = document.querySelector("#languageMenu");
+  const button = document.querySelector("#languageMenuButton");
+  const dropdown = document.querySelector("#languageDropdown");
+  if (!menu || !button || !dropdown) return;
+
+  menu.classList.remove("open");
+  button.setAttribute("aria-expanded", "false");
+  dropdown.hidden = true;
+}
+
+function toggleLanguageDropdown() {
+  const menu = document.querySelector("#languageMenu");
+  const button = document.querySelector("#languageMenuButton");
+  const dropdown = document.querySelector("#languageDropdown");
+  if (!menu || !button || !dropdown) return;
+
+  const willOpen = !menu.classList.contains("open");
+  menu.classList.toggle("open", willOpen);
+  button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  dropdown.hidden = !willOpen;
+
+  if (willOpen) {
+    const activeOption = dropdown.querySelector(`[data-language-choice="${currentLanguage}"]`);
+    activeOption?.focus();
+  }
 }
 
 function readCachedPayload(key) {
@@ -1025,7 +1067,32 @@ document.addEventListener("click", (event) => {
   document.querySelector("#analystQuestion").focus();
 });
 
-document.querySelector("#languageToggle").addEventListener("click", toggleLanguage);
+document.querySelector("#languageMenuButton").addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleLanguageDropdown();
+});
+
+document.querySelector("#languageDropdown").addEventListener("click", (event) => {
+  const option = event.target.closest("[data-language-choice]");
+  if (!option) return;
+
+  setLanguage(option.dataset.languageChoice);
+  closeLanguageDropdown();
+  document.querySelector("#languageMenuButton").focus();
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#languageMenu")) {
+    closeLanguageDropdown();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeLanguageDropdown();
+    document.querySelector("#languageMenuButton").focus();
+  }
+});
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
