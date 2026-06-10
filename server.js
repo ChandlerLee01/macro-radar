@@ -811,22 +811,34 @@ async function generateOpenAiAnalysis(question, context) {
           {
             role: "system",
             content:
-              "You are an AI macro markets analyst for a product dashboard. Return valid JSON only. Frame the output as market research and education, not financial advice. Use only the provided internal market signals, regime, daily brief, alerts, and headline context. Be concise and product-ready.",
+              "You are a senior institutional macro research analyst writing for a professional markets dashboard. Style: Bloomberg, Bridgewater, and Goldman Sachs research note. Return valid JSON only. Do not give financial advice, trade instructions, or personalized recommendations. Frame everything as educational market research. Use only the provided internal market signals, regime, daily brief, alerts, and headline context. Avoid generic template language; write a fresh narrative view that directly answers the user's question.",
           },
           {
             role: "user",
             content: JSON.stringify({
               question,
+              task:
+                "Generate a narrative macro answer from the current context. The UI will render these fields as cards, so each string should be polished research prose, not raw data dumps. Explicitly cite the current S&P 500, DXY, gold, US10Y, regime, and relevant headlines or alerts when useful.",
               requiredSchema: {
                 overallView: "Bullish | Neutral | Bearish | Mixed",
                 confidence: "integer 0-100",
-                keyDrivers: "array of 3-5 concise strings",
-                bullishFactors: "array of 2-4 concise strings",
-                bearishFactors: "array of 2-4 concise strings",
-                watchNext: "array of 2-4 concise strings",
+                keyDrivers:
+                  "array of 3-5 institutional research bullets explaining the dominant macro drivers",
+                bullishFactors:
+                  "array of 2-4 narrative bullets describing constructive evidence, conditional and educational",
+                bearishFactors:
+                  "array of 2-4 narrative bullets describing downside or cautionary evidence, conditional and educational",
+                watchNext:
+                  "array of 2-4 forward-looking monitoring points, not investment advice",
                 explanation:
-                  "one concise paragraph, no financial advice, cite internal signals used",
+                  "one institutional research paragraph, 60-100 words, no financial advice, cite the internal signals used",
               },
+              writingRules: [
+                "Do not say buy, sell, hold, allocate, enter, exit, target, or recommend.",
+                "Do not invent prices, forecasts, or headlines beyond the provided context.",
+                "Prefer conditional phrasing such as 'the read is', 'the signal argues', 'the market is pricing', and 'watch whether'.",
+                "Make Overall View reflect the balance of signals, not a personal investment recommendation.",
+              ],
               internalSignals: {
                 regime: context.signalsUsed.regime,
                 spx: context.signalsUsed.spx,
@@ -841,7 +853,7 @@ async function generateOpenAiAnalysis(question, context) {
             }),
           },
         ],
-        max_output_tokens: 700,
+        max_output_tokens: 950,
       }),
     });
 
