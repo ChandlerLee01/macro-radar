@@ -266,8 +266,10 @@ function applyLanguage() {
 
   const toggle = document.querySelector("#languageToggle");
   if (toggle) {
-    toggle.textContent = currentLanguage === "zh" ? "中文 / EN" : "EN / 中文";
     toggle.setAttribute("aria-pressed", currentLanguage === "zh" ? "true" : "false");
+    toggle.querySelectorAll("[data-language-option]").forEach((option) => {
+      option.classList.toggle("active", option.dataset.languageOption === currentLanguage);
+    });
   }
 
   const refreshStatus = document.querySelector("#refreshStatus span:last-child");
