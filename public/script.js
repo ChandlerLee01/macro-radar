@@ -37,6 +37,15 @@ const translations = {
     couldNotLoadTimeline: "Could not load historical briefs.",
     currentRegime: "Current Regime",
     dataUnavailable: "Data unavailable",
+    dailyBriefCurrentRegime: "Current Regime",
+    dailyBriefEyebrow: "AI Daily Brief",
+    dailyBriefHeading: "Today’s Macro Read",
+    dailyBriefLoading: "Generating from current market signals...",
+    dailyBriefMarketMoves: "Market Moves",
+    dailyBriefProvider: "Market signals",
+    dailyBriefRatesDollarGold: "Rates / Dollar / Gold Read",
+    dailyBriefRiskSummary: "Risk Summary",
+    dailyBriefWatchNext: "Watch Next",
     defensiveDemand: "Defensive demand",
     defensiveDemandText: "Gold remains bid while investors monitor inflation and geopolitical risk.",
     disclaimer: "For educational and research purposes only. Not financial advice.",
@@ -146,6 +155,15 @@ const translations = {
     couldNotLoadTimeline: "无法加载历史简报。",
     currentRegime: "当前市场状态",
     dataUnavailable: "数据不可用",
+    dailyBriefCurrentRegime: "当前市场状态",
+    dailyBriefEyebrow: "AI 每日简报",
+    dailyBriefHeading: "今日宏观解读",
+    dailyBriefLoading: "正在根据当前市场信号生成...",
+    dailyBriefMarketMoves: "市场走势",
+    dailyBriefProvider: "市场信号",
+    dailyBriefRatesDollarGold: "利率 / 美元 / 黄金解读",
+    dailyBriefRiskSummary: "风险摘要",
+    dailyBriefWatchNext: "继续关注",
     defensiveDemand: "防御性需求",
     defensiveDemandText: "黄金保持支撑，投资者继续关注通胀与地缘风险。",
     disclaimer: "仅供教育和研究用途。不构成投资建议。",
@@ -566,6 +584,75 @@ function renderSummary(summary, summaryPoints, provider) {
     .join("");
 }
 
+function findMarket(markets, id) {
+  return markets.find((market) => market.id === id);
+}
+
+function marketMoveLine(market) {
+  if (!market) return null;
+  return `${market.label}: ${market.value} (${market.change})`;
+}
+
+function renderDailyBriefList(selector, items) {
+  const safeItems = items.filter(Boolean);
+  document.querySelector(selector).innerHTML = safeItems
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+}
+
+function renderDailyBrief(payload) {
+  if (payload.aiDailyBrief) {
+    const brief = payload.aiDailyBrief;
+    document.querySelector("#dailyBriefProvider").textContent =
+      brief.provider === "openai" ? "OpenAI" : t("generated");
+    document.querySelector("#dailyBriefRegime").textContent =
+      brief.currentRegime || t("waitingMacroSignals");
+    renderDailyBriefList("#dailyBriefMoves", brief.marketMoves || []);
+    renderDailyBriefList("#dailyBriefRates", brief.ratesDollarGoldRead || []);
+    renderDailyBriefList("#dailyBriefWatch", brief.watchNext || []);
+    document.querySelector("#dailyBriefRisk").textContent =
+      brief.riskSummary || t("waitingRiskSignals");
+    return;
+  }
+
+  const markets = payload.markets || [];
+  const spx = findMarket(markets, "spx");
+  const gold = findMarket(markets, "gold");
+  const dxy = findMarket(markets, "dxy");
+  const tenYear = findMarket(markets, "tenYear");
+  const regime = payload.regime;
+  const summaryPoints = payload.summaryPoints || [];
+  const provider = payload.summaryProvider === "openai" ? "OpenAI" : t("generated");
+
+  document.querySelector("#dailyBriefProvider").textContent = provider;
+  document.querySelector("#dailyBriefRegime").textContent = regime
+    ? `${regime.label} / ${regime.confidence}% ${t("confidenceLabel")}. ${regime.explanation}`
+    : t("waitingMacroSignals");
+
+  renderDailyBriefList(
+    "#dailyBriefMoves",
+    [spx, gold, dxy, tenYear].map(marketMoveLine),
+  );
+
+  renderDailyBriefList("#dailyBriefRates", [
+    tenYear ? `Rates: US10Y is ${tenYear.value}, ${tenYear.change}.` : null,
+    dxy ? `Dollar: ${dxy.label} is ${dxy.value}, ${dxy.change}.` : null,
+    gold ? `Gold: ${gold.label} is ${gold.value}, ${gold.change}.` : null,
+  ]);
+
+  const watchItems = summaryPoints.length
+    ? summaryPoints.map(([title, text]) => `${title}: ${text}`).slice(0, 3)
+    : [
+        spx ? `Risk appetite through ${spx.label} follow-through.` : null,
+        tenYear ? `Treasury yield direction around ${tenYear.value}.` : null,
+        dxy && gold ? `Dollar and gold confirmation: ${dxy.change} vs ${gold.change}.` : null,
+      ];
+  renderDailyBriefList("#dailyBriefWatch", watchItems);
+
+  document.querySelector("#dailyBriefRisk").textContent =
+    payload.summary || regime?.explanation || t("waitingMacroSignals");
+}
+
 function renderRegime(regime) {
   if (!regime) return;
 
@@ -841,6 +928,13 @@ function renderLoading() {
     )
     .join("");
 
+  document.querySelector("#dailyBriefProvider").textContent = t("loading");
+  document.querySelector("#dailyBriefRegime").textContent = t("dailyBriefLoading");
+  renderDailyBriefList("#dailyBriefMoves", [t("waitingAssetMoves")]);
+  renderDailyBriefList("#dailyBriefRates", [t("waitingMacroSignals")]);
+  renderDailyBriefList("#dailyBriefWatch", [t("waitingMacroHeadlines")]);
+  document.querySelector("#dailyBriefRisk").textContent = t("waitingRiskSignals");
+
   document.querySelector("#briefStatus").textContent = t("loading");
   document.querySelector("#briefRegime").textContent = "--";
   document.querySelector("#briefTheme").textContent = t("generatingTheme");
@@ -950,6 +1044,7 @@ async function refreshMarkets() {
     renderCharts(payload.markets);
     renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
+    renderDailyBrief(payload);
     const isFallback = fromCache || payload.degraded || payload.providerStatus?.marketData === "fallback";
     const updatedTime = new Date(payload.updatedAt).toLocaleTimeString([], {
       hour: "2-digit",

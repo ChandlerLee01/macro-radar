@@ -448,6 +448,51 @@ h2 {
   text-transform: uppercase;
 }
 
+.daily-brief-panel {
+  margin-bottom: 16px;
+  border: 1px solid rgba(103, 167, 255, 0.26);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(103, 167, 255, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(20, 30, 44, 0.96), rgba(13, 19, 29, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+  padding: 22px;
+}
+
+.daily-brief-heading {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.daily-brief-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.daily-brief-card {
+  min-width: 0;
+  border: 1px solid rgba(143, 160, 181, 0.18);
+  border-radius: 8px;
+  background: rgba(5, 10, 17, 0.34);
+  padding: 14px;
+}
+
+.daily-brief-card p,
+.daily-brief-card li {
+  color: #c8d3e4;
+  font-size: 0.83rem;
+  font-weight: 600;
+  line-height: 1.48;
+}
+
+.daily-brief-card ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 17px;
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1264,6 +1309,7 @@ h2 {
 
 @media (max-width: 980px) {
   .metrics-grid,
+  .daily-brief-grid,
   .summary-layout,
   .regime-body,
   .result-grid,
@@ -1361,6 +1407,7 @@ h2 {
   }
 
   .analyst-panel,
+  .daily-brief-panel,
   .regime-panel,
   .alerts-panel,
   .summary-panel,
@@ -1373,6 +1420,7 @@ h2 {
   }
 
   .analyst-panel,
+  .daily-brief-panel,
   .metrics-grid,
   .regime-panel,
   .alerts-panel,
@@ -1384,6 +1432,7 @@ h2 {
   }
 
   .analyst-heading,
+  .daily-brief-heading,
   .regime-heading,
   .alerts-heading,
   .charts-heading,
@@ -1425,6 +1474,8 @@ h2 {
   }
 
   .result-section ul,
+  .daily-brief-card p,
+  .daily-brief-card li,
   .signals-card ul,
   .alert-copy p,
   .alert-empty p,
@@ -1477,6 +1528,7 @@ h2 {
   }
 
   .metrics-grid,
+  .daily-brief-grid,
   .summary-layout,
   .summary-points,
   .regime-body,
@@ -1555,6 +1607,7 @@ h2 {
   }
 
   .analyst-panel,
+  .daily-brief-panel,
   .regime-panel,
   .alerts-panel,
   .summary-panel,

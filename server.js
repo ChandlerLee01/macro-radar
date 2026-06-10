@@ -911,6 +911,38 @@ async function generateAiSummary(markets) {
   }
 }
 
+function buildAiDailyBrief(markets, regime, aiSummary) {
+  const gold = marketById(markets, "gold");
+  const spx = marketById(markets, "spx");
+  const dxy = marketById(markets, "dxy");
+  const tenYear = marketById(markets, "tenYear");
+  const summaryPoints = Array.isArray(aiSummary.summaryPoints) ? aiSummary.summaryPoints : [];
+
+  return {
+    provider: aiSummary.summaryProvider === "openai" ? "openai" : "local",
+    currentRegime: `${regime.label} / ${regime.confidence}% confidence. ${regime.explanation}`,
+    marketMoves: [
+      movementText("S&P 500", spx),
+      movementText(gold.label, gold),
+      movementText(dxy.label, dxy),
+      movementText("US10Y", tenYear),
+    ],
+    ratesDollarGoldRead: [
+      `Rates: US10Y is ${tenYear.value}, ${tenYear.change}.`,
+      `Dollar: ${dxy.label} is ${dxy.value}, ${dxy.change}.`,
+      `Gold: ${gold.label} is ${gold.value}, ${gold.change}.`,
+    ],
+    watchNext: summaryPoints.length
+      ? summaryPoints.map(([title, text]) => `${title}: ${text}`).slice(0, 3)
+      : [
+          `Risk appetite through ${spx.label} follow-through.`,
+          `Treasury yield direction around ${tenYear.value}.`,
+          `Dollar and gold confirmation: ${dxy.change} vs ${gold.change}.`,
+        ],
+    riskSummary: aiSummary.summary || regime.explanation,
+  };
+}
+
 function fallbackQuoteRows() {
   const today = localDateKey();
   return {
@@ -1287,6 +1319,7 @@ async function buildMarketPayload({ quotes, treasury, history, providerStatus })
     markets: built.markets,
     regime: built.regime,
     ...aiSummary,
+    aiDailyBrief: buildAiDailyBrief(built.markets, built.regime, aiSummary),
     sources: providerStatus.sources,
     degraded: providerStatus.marketData === "fallback",
     providerStatus,
