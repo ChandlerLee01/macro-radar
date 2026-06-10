@@ -586,6 +586,7 @@ function sanitizeQuestion(question) {
 
 function normalizeAnalystResponse(question, generated, context, provider) {
   const views = new Set(["Bullish", "Neutral", "Bearish", "Mixed"]);
+  const watchItems = generated.watchNext || generated.watchingNext;
   const list = (items, fallback) =>
     (Array.isArray(items) ? items : fallback)
       .map((item) => String(item || "").trim())
@@ -599,7 +600,7 @@ function normalizeAnalystResponse(question, generated, context, provider) {
     keyDrivers: list(generated.keyDrivers, context.defaultDrivers),
     bullishFactors: list(generated.bullishFactors, context.defaultBullish),
     bearishFactors: list(generated.bearishFactors, context.defaultBearish),
-    watchNext: list(generated.watchNext, context.defaultWatchNext),
+    watchNext: list(watchItems, context.defaultWatchNext),
     explanation:
       typeof generated.explanation === "string" && generated.explanation.trim()
         ? generated.explanation.trim()
@@ -788,6 +789,115 @@ function generateLocalAnalysis(question, context) {
   );
 }
 
+function buildOpenAiAnalystPayload(question, context) {
+  return {
+    model: OPENAI_MODEL,
+    input: [
+      {
+        role: "system",
+        content:
+          "You are a senior institutional macro research analyst writing for a professional markets dashboard. Style: Bloomberg, Bridgewater, and Goldman Sachs research note. Return JSON only. Do not give financial advice, trade instructions, or personalized recommendations. Frame everything as educational market research. Use only the provided market data, regime, alerts, daily brief, and headlines. Avoid generic template language; write a fresh narrative view that directly answers the user's question.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          question,
+          task:
+            "Generate real narrative macro research content from the current context. The UI will render these fields as cards, so each string should be polished prose rather than a fixed template. Explicitly use the current S&P 500 move, DXY move, gold move, US10Y move, current regime, alerts, daily brief, and relevant headlines where useful.",
+          requiredJsonFields: [
+            "overallView",
+            "confidence",
+            "keyDrivers",
+            "bullishFactors",
+            "bearishFactors",
+            "watchingNext",
+            "explanation",
+          ],
+          tone: "Institutional macro research; Bloomberg / Bridgewater / Goldman Sachs style.",
+          rules: [
+            "Never say buy, sell, hold, allocate, enter, exit, target, or recommend.",
+            "Do not invent market data, prices, forecasts, alerts, or headlines.",
+            "Use conditional educational phrasing such as 'the read is', 'the signal argues', 'the market is pricing', and 'watch whether'.",
+            "Overall View must reflect the balance of current signals, not a personal investment recommendation.",
+          ],
+          context: {
+            marketData: {
+              spx: context.signalsUsed.spx,
+              dxy: context.signalsUsed.dxy,
+              gold: context.signalsUsed.gold,
+              tenYear: context.signalsUsed.tenYear,
+            },
+            regime: context.signalsUsed.regime,
+            alerts: context.alerts,
+            dailyBrief: context.dailyBrief,
+            headlines: context.headlines,
+            headlineTopics: context.headlineTopics,
+          },
+        }),
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "macro_analyst_response",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "overallView",
+            "confidence",
+            "keyDrivers",
+            "bullishFactors",
+            "bearishFactors",
+            "watchingNext",
+            "explanation",
+          ],
+          properties: {
+            overallView: {
+              type: "string",
+              enum: ["Bullish", "Neutral", "Bearish", "Mixed"],
+            },
+            confidence: {
+              type: "integer",
+              minimum: 0,
+              maximum: 100,
+            },
+            keyDrivers: {
+              type: "array",
+              minItems: 3,
+              maxItems: 5,
+              items: { type: "string" },
+            },
+            bullishFactors: {
+              type: "array",
+              minItems: 2,
+              maxItems: 4,
+              items: { type: "string" },
+            },
+            bearishFactors: {
+              type: "array",
+              minItems: 2,
+              maxItems: 4,
+              items: { type: "string" },
+            },
+            watchingNext: {
+              type: "array",
+              minItems: 2,
+              maxItems: 4,
+              items: { type: "string" },
+            },
+            explanation: {
+              type: "string",
+            },
+          },
+        },
+      },
+    },
+    max_output_tokens: 1000,
+  };
+}
+
 async function generateOpenAiAnalysis(question, context) {
   if (
     !process.env.OPENAI_API_KEY ||
@@ -805,56 +915,7 @@ async function generateOpenAiAnalysis(question, context) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: [
-          {
-            role: "system",
-            content:
-              "You are a senior institutional macro research analyst writing for a professional markets dashboard. Style: Bloomberg, Bridgewater, and Goldman Sachs research note. Return valid JSON only. Do not give financial advice, trade instructions, or personalized recommendations. Frame everything as educational market research. Use only the provided internal market signals, regime, daily brief, alerts, and headline context. Avoid generic template language; write a fresh narrative view that directly answers the user's question.",
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              question,
-              task:
-                "Generate a narrative macro answer from the current context. The UI will render these fields as cards, so each string should be polished research prose, not raw data dumps. Explicitly cite the current S&P 500, DXY, gold, US10Y, regime, and relevant headlines or alerts when useful.",
-              requiredSchema: {
-                overallView: "Bullish | Neutral | Bearish | Mixed",
-                confidence: "integer 0-100",
-                keyDrivers:
-                  "array of 3-5 institutional research bullets explaining the dominant macro drivers",
-                bullishFactors:
-                  "array of 2-4 narrative bullets describing constructive evidence, conditional and educational",
-                bearishFactors:
-                  "array of 2-4 narrative bullets describing downside or cautionary evidence, conditional and educational",
-                watchNext:
-                  "array of 2-4 forward-looking monitoring points, not investment advice",
-                explanation:
-                  "one institutional research paragraph, 60-100 words, no financial advice, cite the internal signals used",
-              },
-              writingRules: [
-                "Do not say buy, sell, hold, allocate, enter, exit, target, or recommend.",
-                "Do not invent prices, forecasts, or headlines beyond the provided context.",
-                "Prefer conditional phrasing such as 'the read is', 'the signal argues', 'the market is pricing', and 'watch whether'.",
-                "Make Overall View reflect the balance of signals, not a personal investment recommendation.",
-              ],
-              internalSignals: {
-                regime: context.signalsUsed.regime,
-                spx: context.signalsUsed.spx,
-                gold: context.signalsUsed.gold,
-                dxy: context.signalsUsed.dxy,
-                tenYear: context.signalsUsed.tenYear,
-                headlineTopics: context.headlineTopics,
-                headlines: context.headlines,
-                dailyBrief: context.dailyBrief,
-                alerts: context.alerts,
-              },
-            }),
-          },
-        ],
-        max_output_tokens: 950,
-      }),
+      body: JSON.stringify(buildOpenAiAnalystPayload(question, context)),
     });
 
     if (!response.ok) {
