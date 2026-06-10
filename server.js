@@ -178,6 +178,9 @@ async function fetchOptionalText(url, label, options = {}) {
 }
 
 function num(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" && !value.trim()) return null;
+  if (value === ".") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -924,8 +927,8 @@ function fallbackTreasuryEntries() {
   }));
 }
 
-function providerRow({ open, high, low, close, date, time, detail }) {
-  if (![open, high, low, close].every(Number.isFinite)) {
+function providerRow({ open, high, low, close, date, time, detail, label, provider }) {
+  if (![open, high, low, close].every((value) => Number.isFinite(value) && value > 0)) {
     throw new Error("Provider row is missing price fields");
   }
 
@@ -937,6 +940,8 @@ function providerRow({ open, high, low, close, date, time, detail }) {
     Date: date || localDateKey(),
     Time: time || "",
     Detail: detail,
+    Label: label,
+    Provider: provider,
   };
 }
 
@@ -977,6 +982,8 @@ async function fetchAlphaVantageQuote(symbol, id) {
     date: quote["07. latest trading day"],
     time: "Alpha Vantage",
     detail: `${symbol} ${id === "spx" ? "ETF proxy" : id === "gold" ? "ETF proxy" : "dollar ETF proxy"}, Alpha Vantage`,
+    label: id === "gold" ? "Gold ETF (GLD)" : id === "spx" ? "S&P 500 ETF (SPY)" : "US Dollar ETF (UUP)",
+    provider: "Alpha Vantage",
   });
 }
 
@@ -1053,6 +1060,8 @@ function parseYahooResult(payload, symbol, label) {
       date: latest.date,
       time: "Yahoo Finance",
       detail: `${label}, Yahoo Finance`,
+      label,
+      provider: "Yahoo Finance",
     }),
     history: points.map((point) => ({
       Date: point.date,
@@ -1105,7 +1114,7 @@ async function fetchFredTreasuryEntries() {
       date: entry.date,
       tenYear: num(entry.value),
     }))
-    .filter((entry) => entry.date && Number.isFinite(entry.tenYear))
+    .filter((entry) => entry.date && Number.isFinite(entry.tenYear) && entry.tenYear >= 3 && entry.tenYear <= 6)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   if (entries.length < 2) throw new Error("FRED DGS10 returned incomplete data");
@@ -1117,8 +1126,8 @@ async function fetchYahooTreasuryEntries() {
   const parsed = parseYahooResult(payload, YAHOO_SYMBOLS.tenYear, "CBOE 10Y Treasury yield proxy");
   const entries = parsed.history.map((point) => ({
     date: point.Date,
-    tenYear: num(point.Close) / 10,
-  })).filter((entry) => entry.date && Number.isFinite(entry.tenYear));
+    tenYear: num(point.Close) > 20 ? num(point.Close) / 10 : num(point.Close),
+  })).filter((entry) => entry.date && Number.isFinite(entry.tenYear) && entry.tenYear >= 3 && entry.tenYear <= 6);
 
   if (entries.length < 2) throw new Error("Yahoo 10Y proxy returned incomplete data");
   return entries;
@@ -1131,6 +1140,29 @@ function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
     throw new Error("Market input data is incomplete");
   }
 
+  const goldClose = num(gold.Close);
+  const spxClose = num(spx.Close);
+  const dxyClose = num(dxy.Close);
+  if (!Number.isFinite(goldClose) || goldClose <= 0) {
+    throw new Error("Gold provider returned invalid price data");
+  }
+  if (!Number.isFinite(spxClose) || spxClose < 100) {
+    throw new Error("S&P 500 provider returned invalid price data");
+  }
+  if (!Number.isFinite(dxyClose) || dxyClose <= 0) {
+    throw new Error("Dollar provider returned invalid price data");
+  }
+  if (
+    !Number.isFinite(latestYield.tenYear) ||
+    !Number.isFinite(previousYield.tenYear) ||
+    latestYield.tenYear < 3 ||
+    latestYield.tenYear > 6 ||
+    previousYield.tenYear < 3 ||
+    previousYield.tenYear > 6
+  ) {
+    throw new Error("US10Y provider returned invalid yield data");
+  }
+
   const tenYearChange = latestYield.tenYear - previousYield.tenYear;
   const goldMove = pctChange(num(gold.Close), num(gold.Open));
   const spxMove = pctChange(num(spx.Close), num(spx.Open));
@@ -1139,7 +1171,7 @@ function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
   const markets = [
     {
       id: "gold",
-      label: "Gold Price",
+      label: gold.Label || "Gold Price",
       icon: "Au",
       value: currency(num(gold.Close)),
       change: changeText(goldMove),
@@ -1155,7 +1187,7 @@ function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
     },
     {
       id: "spx",
-      label: "S&P 500",
+      label: spx.Label || "S&P 500",
       icon: "SP",
       value: indexValue(num(spx.Close)),
       change: changeText(spxMove),
@@ -1171,7 +1203,7 @@ function buildMarketsFromInputs({ gold, spx, dxy, treasury, history }) {
     },
     {
       id: "dxy",
-      label: "US Dollar Index",
+      label: dxy.Label || "US Dollar Index",
       icon: "DXY",
       value: indexValue(num(dxy.Close)),
       change: changeText(dxyMove),
@@ -1278,6 +1310,12 @@ async function buildFallbackMarketPayload(reason, providerStatus = {}) {
       stooq: "fallback",
       treasury: "fallback",
       history: "fallback",
+      assetProviders: {
+        gold: "Local fallback",
+        spx: "Local fallback",
+        dxy: "Local fallback",
+        tenYear: "Local fallback",
+      },
       sources: ["Local degraded market fallback", "Local Treasury yield fallback"],
       errors: providerStatus.errors?.length
         ? providerStatus.errors
@@ -1419,6 +1457,12 @@ async function fetchMarkets() {
         stooq: providerStatus.stooq,
         treasury: treasuryStatus,
         history: history.gold.length && history.spx.length && history.dxy.length ? "live" : "synthetic",
+        assetProviders: {
+          gold: quoteRows.gold.Provider || quoteRows.gold.Detail || "Local fallback",
+          spx: quoteRows.spx.Provider || quoteRows.spx.Detail || "Local fallback",
+          dxy: quoteRows.dxy.Provider || quoteRows.dxy.Detail || "Local fallback",
+          tenYear: treasuryStatus,
+        },
         sources: [
           ...marketSources,
           treasuryStatus,
@@ -1446,6 +1490,19 @@ async function fetchMarketsSafe() {
     return await fetchMarkets();
   } catch (error) {
     console.error(`Safe market fallback: ${error.message}`);
+    if (cache) {
+      return {
+        ...cache,
+        updatedAt: new Date().toISOString(),
+        degraded: true,
+        providerStatus: {
+          ...cache.providerStatus,
+          marketData: "fallback",
+          previousSnapshot: "preserved",
+          errors: [...(cache.providerStatus?.errors || []), `Preserved previous snapshot: ${error.message}`],
+        },
+      };
+    }
     return buildFallbackMarketPayload(error.message);
   }
 }
