@@ -660,23 +660,43 @@ function buildAnalystContext(marketsPayload, newsPayload, dailyBriefPayload = nu
     recentAlerts[0] ? `Latest alert: ${recentAlerts[0].title}` : null,
   ].filter(Boolean);
   const defaultBullish = [
-    spx.rawChange >= 0 ? "Positive S&P 500 momentum supports risk appetite" : null,
-    dxy.rawChange < 0 ? "A softer dollar can ease financial conditions for risk assets" : null,
-    tenYear.rawChange <= 0 ? "Stable or lower Treasury yields reduce valuation pressure" : null,
+    spx.rawChange >= 0
+      ? `The S&P 500 is holding a constructive tone at ${spx.value}, suggesting risk appetite has not broken despite the macro cross-currents.`
+      : null,
+    dxy.rawChange < 0
+      ? `A softer dollar at ${dxy.value} can ease financial conditions at the margin and reduce one headwind for global risk sentiment.`
+      : null,
+    tenYear.rawChange <= 0
+      ? `A stable-to-lower US10Y at ${tenYear.value} reduces the immediate valuation pressure from rates and helps the tape look less fragile.`
+      : null,
+    gold.rawChange >= 0
+      ? `${gold.label} remains supported at ${gold.value}, which keeps hedge demand visible in the macro read.`
+      : null,
     ["Risk On", "Growth Optimism"].includes(regime.label)
-      ? `${regime.label} regime points to constructive cross-asset tone`
+      ? `The ${regime.label} regime keeps the cross-asset backdrop tilted toward a more constructive interpretation.`
       : null,
   ].filter(Boolean);
   const defaultBearish = [
-    spx.rawChange < 0 ? "Equity weakness signals fragile risk sentiment" : null,
-    dxy.rawChange > 0 ? "Dollar strength can tighten global liquidity conditions" : null,
-    tenYear.rawChange > 0 ? "Rising Treasury yields can pressure duration-sensitive assets" : null,
-    gold.rawChange > 0.35 ? "Firm gold suggests investors are still paying for hedges" : null,
+    spx.rawChange < 0
+      ? `Equity softness in the S&P 500 points to a more fragile risk backdrop and limits conviction in a clean bullish macro read.`
+      : null,
+    dxy.rawChange > 0
+      ? `Dollar strength at ${dxy.value} can tighten global liquidity conditions and complicate the read for risk assets and commodities.`
+      : null,
+    tenYear.rawChange > 0
+      ? `A higher US10Y at ${tenYear.value} raises the opportunity cost for non-yielding assets and keeps duration sensitivity in focus.`
+      : null,
+    gold.rawChange < 0
+      ? `${gold.label} is not confirming broad safe-haven demand yet, which makes the near-term gold signal less one-sided.`
+      : null,
+    gold.rawChange > 0.35
+      ? `Firm gold also carries a cautionary message: investors may still be paying for macro hedges rather than simply expressing growth optimism.`
+      : null,
     recentAlerts.some((alert) => alert.severity === "high")
-      ? "High-severity macro alerts keep risk monitoring elevated"
+      ? "High-severity macro alerts keep the risk distribution wider than the headline market move alone would imply."
       : null,
     ["Risk Off", "Defensive Positioning", "Rate Shock", "Inflation Fear"].includes(regime.label)
-      ? `${regime.label} regime keeps macro risk elevated`
+      ? `The ${regime.label} regime keeps macro risk elevated and argues for waiting on confirmation from rates, dollar, and headline flow.`
       : null,
   ].filter(Boolean);
 
@@ -705,8 +725,16 @@ function buildAnalystContext(marketsPayload, newsPayload, dailyBriefPayload = nu
       tenYearMove: tenYear.rawChange,
     },
     defaultDrivers,
-    defaultBullish: defaultBullish.length ? defaultBullish : ["No strong bullish signal is dominant yet"],
-    defaultBearish: defaultBearish.length ? defaultBearish : ["No strong bearish signal is dominant yet"],
+    defaultBullish: [
+      ...defaultBullish,
+      "The constructive case would improve if rates stabilize, the dollar softens, and equity breadth confirms the current risk tone.",
+      "A calmer headline tape would make the current market regime easier to interpret as a macro stabilization signal rather than a short-lived bounce.",
+    ].slice(0, 4),
+    defaultBearish: [
+      ...defaultBearish,
+      "The main caution is that the signal mix is not yet strong enough to support a high-conviction directional read.",
+      "Headline sensitivity remains important because regime confidence can shift quickly when rates, dollar, and gold move together.",
+    ].slice(0, 4),
     defaultWatchNext: [
       ...(dailyBrief?.watchingNext || []),
       "Whether Treasury yields extend or fade the latest move",
@@ -714,7 +742,7 @@ function buildAnalystContext(marketsPayload, newsPayload, dailyBriefPayload = nu
       "Gold confirmation of hedge demand",
       "Fed, inflation, and growth headlines in the next news cycle",
     ].slice(0, 5),
-    defaultExplanation: `${regime.label} is the current macro regime. This educational research read uses S&P 500 ${spx.change}, DXY ${dxy.change}, gold ${gold.change}, US10Y ${tenYear.change}, ${recentAlerts.length ? `${recentAlerts.length} recent macro alert signal(s), ` : ""}and headlines focused on ${headlineTopics.join(", ") || "macro policy and market pricing"}.`,
+    defaultExplanation: `${regime.label} is the current macro regime, so the market read is less about one asset move and more about whether the cross-asset mix is confirming the same story. S&P 500 ${spx.change} sets the risk tone, while DXY ${dxy.change}, ${gold.label} ${gold.change}, and US10Y ${tenYear.change} define the liquidity, hedge-demand, and rates backdrop. The research takeaway is conditional: conviction improves only if those signals line up with the daily brief, alerts, and headlines around ${headlineTopics.join(", ") || "macro policy and market pricing"}.`,
   };
 }
 
@@ -803,7 +831,7 @@ function buildOpenAiAnalystPayload(question, context) {
         content: JSON.stringify({
           question,
           task:
-            "Generate real narrative macro research content from the current context. The UI will render these fields as cards, so each string should be polished prose rather than a fixed template. Explicitly use the current S&P 500 move, DXY move, gold move, US10Y move, current regime, alerts, daily brief, and relevant headlines where useful.",
+            "Generate real narrative macro research content from the current context. The UI will render these fields as cards, so each string should be polished prose rather than a fixed template. Interpret the current S&P 500 move, DXY move, gold move, US10Y move, current regime, alerts, daily brief, and relevant headlines instead of merely listing them.",
           requiredJsonFields: [
             "overallView",
             "confidence",
@@ -814,6 +842,13 @@ function buildOpenAiAnalystPayload(question, context) {
             "explanation",
           ],
           tone: "Institutional macro research; Bloomberg / Bridgewater / Goldman Sachs style.",
+          qualityBar: [
+            "The explanation should read like a concise macro note with 2-4 natural sentences.",
+            "Bullish Factors should usually contain 2-4 fully written research bullets.",
+            "Bearish Factors should usually contain 2-4 fully written research bullets.",
+            "Watching Next should contain 3-5 concrete monitoring points.",
+            "If the question is about gold, explicitly interpret the interaction between gold, the dollar, Treasury yields, and the current regime.",
+          ],
           rules: [
             "Never say buy, sell, hold, allocate, enter, exit, target, or recommend.",
             "Do not invent market data, prices, forecasts, alerts, or headlines.",
@@ -883,12 +918,13 @@ function buildOpenAiAnalystPayload(question, context) {
             },
             watchingNext: {
               type: "array",
-              minItems: 2,
-              maxItems: 4,
+              minItems: 3,
+              maxItems: 5,
               items: { type: "string" },
             },
             explanation: {
               type: "string",
+              minLength: 220,
             },
           },
         },
