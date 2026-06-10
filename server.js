@@ -1304,7 +1304,7 @@ async function buildFallbackMarketPayload(reason, providerStatus = {}) {
     },
     providerStatus: {
       marketData: "fallback",
-      alphaVantage: providerStatus.alphaVantage || "not_configured",
+      alphaVantage: providerStatus.alphaVantage || "backup_not_used",
       alphaVantageError: providerStatus.alphaVantageError || "",
       yahoo: providerStatus.yahoo || "unavailable",
       stooq: "fallback",
@@ -1332,7 +1332,7 @@ async function fetchMarkets() {
   marketFetchPromise = (async () => {
     const errors = [];
     const providerStatus = {
-      alphaVantage: "not_configured",
+      alphaVantage: "backup_not_used",
       alphaVantageError: "",
       yahoo: "not-used",
       stooq: "not-used",
@@ -1343,31 +1343,29 @@ async function fetchMarkets() {
     let marketData = "fallback";
     const marketSources = [];
 
-    const alphaResult = await fetchAlphaVantageQuotes();
-    providerStatus.alphaVantage = alphaResult.status;
-    providerStatus.alphaVantageError = alphaResult.error || "";
-    if (providerStatus.alphaVantageError) {
-      errors.push(`Alpha Vantage: ${providerStatus.alphaVantageError}`);
-      console.error(`Alpha Vantage unavailable: ${providerStatus.alphaVantageError}`);
-    }
-    quoteRows = { ...quoteRows, ...alphaResult.quotes };
-    if (Object.keys(alphaResult.quotes).length) {
-      marketSources.push("Alpha Vantage");
-    }
-
     try {
       const yahooData = await fetchYahooMarketData();
       history = yahooData.history;
-      const missingIds = ["gold", "spx", "dxy"].filter((id) => !quoteRows[id]);
-      for (const id of missingIds) {
-        quoteRows[id] = yahooData.quotes[id];
-      }
-      providerStatus.yahoo = missingIds.length ? "backup" : "history";
-      marketSources.push(missingIds.length ? "Yahoo Finance backup" : "Yahoo Finance chart history");
+      quoteRows = { ...quoteRows, ...yahooData.quotes };
+      providerStatus.yahoo = "live";
+      marketSources.push("Yahoo Finance");
     } catch (error) {
       providerStatus.yahoo = "error";
       errors.push(`Yahoo Finance: ${error.message}`);
-      console.error(`Yahoo Finance market backup unavailable: ${error.message}`);
+      console.error(`Yahoo Finance market provider unavailable: ${error.message}`);
+    }
+
+    if (["gold", "spx", "dxy"].some((id) => !quoteRows[id])) {
+      const alphaResult = await fetchAlphaVantageQuotes();
+      providerStatus.alphaVantage = alphaResult.status === "live" ? "fallback" : alphaResult.status;
+      providerStatus.alphaVantageError = alphaResult.error || "";
+      quoteRows = { ...quoteRows, ...alphaResult.quotes };
+      if (Object.keys(alphaResult.quotes).length) {
+        marketSources.push("Alpha Vantage backup");
+      }
+      if (providerStatus.alphaVantageError) {
+        console.error(`Alpha Vantage backup unavailable: ${providerStatus.alphaVantageError}`);
+      }
     }
 
     if (["gold", "spx", "dxy"].some((id) => !quoteRows[id])) {
@@ -1395,7 +1393,7 @@ async function fetchMarkets() {
     if (missingAfterRealProviders.length === 3) {
       marketData = "fallback";
       marketSources.push("Local degraded market fallback");
-    } else if (missingAfterRealProviders.length > 0 || providerStatus.alphaVantage === "fallback") {
+    } else if (missingAfterRealProviders.length > 0) {
       marketData = "partial-live";
       marketSources.push("Local fallback for missing market assets");
     } else {
