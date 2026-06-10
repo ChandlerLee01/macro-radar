@@ -615,7 +615,7 @@ function normalizeAnalystResponse(question, generated, context, provider) {
   };
 }
 
-function buildAnalystContext(marketsPayload, newsPayload) {
+function buildAnalystContext(marketsPayload, newsPayload, dailyBriefPayload = null, alertsPayload = null) {
   const markets = marketsPayload.markets;
   const regime = marketsPayload.regime;
   const gold = marketById(markets, "gold");
@@ -626,6 +626,28 @@ function buildAnalystContext(marketsPayload, newsPayload) {
   const headlineTopics = [
     ...new Set(topHeadlines.flatMap((headline) => headline.topics || [])),
   ].slice(0, 6);
+  const alertHistory = alertsPayload?.history || [];
+  const activeAlerts = alertsPayload?.active || [];
+  const recentAlerts = [...activeAlerts, ...alertHistory]
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((alert) => ({
+      title: alert.title,
+      explanation: alert.explanation,
+      severity: alert.severity,
+      type: alert.type,
+      timestamp: alert.timestamp,
+    }));
+  const dailyBrief = dailyBriefPayload
+    ? {
+        marketTheme: dailyBriefPayload.marketTheme,
+        mainRisks: dailyBriefPayload.mainRisks || [],
+        keyDrivers: dailyBriefPayload.keyDrivers || [],
+        watchingNext: dailyBriefPayload.watchingNext || [],
+        actionableInterpretation: dailyBriefPayload.actionableInterpretation,
+        summaryLine: dailyBriefPayload.summaryLine,
+      }
+    : marketsPayload.aiDailyBrief || null;
 
   const defaultDrivers = [
     `Regime engine: ${regime.label} at ${regime.confidence}% confidence`,
@@ -633,7 +655,9 @@ function buildAnalystContext(marketsPayload, newsPayload) {
     `DXY: ${dxy.change} at ${dxy.value}`,
     `Gold: ${gold.change} at ${gold.value}`,
     `US10Y: ${tenYear.change} to ${tenYear.value}`,
-  ];
+    dailyBrief?.summaryLine ? `Daily brief: ${dailyBrief.summaryLine}` : null,
+    recentAlerts[0] ? `Latest alert: ${recentAlerts[0].title}` : null,
+  ].filter(Boolean);
   const defaultBullish = [
     spx.rawChange >= 0 ? "Positive S&P 500 momentum supports risk appetite" : null,
     dxy.rawChange < 0 ? "A softer dollar can ease financial conditions for risk assets" : null,
@@ -647,6 +671,9 @@ function buildAnalystContext(marketsPayload, newsPayload) {
     dxy.rawChange > 0 ? "Dollar strength can tighten global liquidity conditions" : null,
     tenYear.rawChange > 0 ? "Rising Treasury yields can pressure duration-sensitive assets" : null,
     gold.rawChange > 0.35 ? "Firm gold suggests investors are still paying for hedges" : null,
+    recentAlerts.some((alert) => alert.severity === "high")
+      ? "High-severity macro alerts keep risk monitoring elevated"
+      : null,
     ["Risk Off", "Defensive Positioning", "Rate Shock", "Inflation Fear"].includes(regime.label)
       ? `${regime.label} regime keeps macro risk elevated`
       : null,
@@ -661,6 +688,8 @@ function buildAnalystContext(marketsPayload, newsPayload) {
       source: headline.source,
       topics: headline.topics,
     })),
+    dailyBrief,
+    alerts: recentAlerts,
     signalsUsed: {
       regime: `${regime.label} (${regime.confidence}% confidence)`,
       spx: `${spx.change} at ${spx.value}`,
@@ -678,12 +707,13 @@ function buildAnalystContext(marketsPayload, newsPayload) {
     defaultBullish: defaultBullish.length ? defaultBullish : ["No strong bullish signal is dominant yet"],
     defaultBearish: defaultBearish.length ? defaultBearish : ["No strong bearish signal is dominant yet"],
     defaultWatchNext: [
+      ...(dailyBrief?.watchingNext || []),
       "Whether Treasury yields extend or fade the latest move",
       "Dollar follow-through as a cross-asset liquidity signal",
       "Gold confirmation of hedge demand",
       "Fed, inflation, and growth headlines in the next news cycle",
-    ],
-    defaultExplanation: `${regime.label} is the current macro regime. The research read is based on S&P 500 ${spx.change}, DXY ${dxy.change}, gold ${gold.change}, US10Y ${tenYear.change}, and headlines focused on ${headlineTopics.join(", ") || "macro policy and market pricing"}.`,
+    ].slice(0, 5),
+    defaultExplanation: `${regime.label} is the current macro regime. This educational research read uses S&P 500 ${spx.change}, DXY ${dxy.change}, gold ${gold.change}, US10Y ${tenYear.change}, ${recentAlerts.length ? `${recentAlerts.length} recent macro alert signal(s), ` : ""}and headlines focused on ${headlineTopics.join(", ") || "macro policy and market pricing"}.`,
   };
 }
 
@@ -781,7 +811,7 @@ async function generateOpenAiAnalysis(question, context) {
           {
             role: "system",
             content:
-              "You are an AI macro markets analyst for a product dashboard. Return valid JSON only. Frame the output as market research and education, not financial advice. Use only the provided internal signals and headline topics. Be concise and product-ready.",
+              "You are an AI macro markets analyst for a product dashboard. Return valid JSON only. Frame the output as market research and education, not financial advice. Use only the provided internal market signals, regime, daily brief, alerts, and headline context. Be concise and product-ready.",
           },
           {
             role: "user",
@@ -805,6 +835,8 @@ async function generateOpenAiAnalysis(question, context) {
                 tenYear: context.signalsUsed.tenYear,
                 headlineTopics: context.headlineTopics,
                 headlines: context.headlines,
+                dailyBrief: context.dailyBrief,
+                alerts: context.alerts,
               },
             }),
           },
@@ -1913,8 +1945,20 @@ async function analyzeMacroQuestion(body = {}) {
     throw error;
   }
 
-  const [marketsPayload, newsPayload] = await Promise.all([fetchMarketsSafe(), fetchMacroNews()]);
-  const context = buildAnalystContext(marketsPayload, newsPayload);
+  const marketsPayload = await fetchMarketsSafe();
+  const [newsResult, briefResult, alertsResult] = await Promise.allSettled([
+    fetchMacroNews(),
+    fetchDailyBrief(),
+    fetchMacroAlerts(),
+  ]);
+  const newsPayload =
+    newsResult.status === "fulfilled" ? newsResult.value : buildFallbackNews(newsResult.reason?.message);
+  const dailyBriefPayload = briefResult.status === "fulfilled" ? briefResult.value : null;
+  const alertsPayload =
+    alertsResult.status === "fulfilled"
+      ? alertsResult.value
+      : { updatedAt: new Date().toISOString(), active: [], history: [], count: 0 };
+  const context = buildAnalystContext(marketsPayload, newsPayload, dailyBriefPayload, alertsPayload);
   const openAiAnalysis = await generateOpenAiAnalysis(question, context);
   return openAiAnalysis || generateLocalAnalysis(question, context);
 }
