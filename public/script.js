@@ -1090,7 +1090,11 @@ async function refreshBrief() {
     if (fromCache) {
       document.querySelector("#briefStatus").textContent = t("offlineSnapshot");
     }
-    refreshTimeline();
+    try {
+      await refreshTimeline();
+    } catch (error) {
+      console.error(error);
+    }
   } catch (error) {
     document.querySelector("#briefStatus").textContent = t("briefUnavailable");
     document.querySelector("#briefTheme").textContent =
