@@ -43,7 +43,6 @@ const WATCHLIST_YAHOO_SYMBOLS = {
   EURUSD: { symbol: "EURUSD=X", label: "EUR/USD", formatter: "fx4" },
   USDJPY: { symbol: "JPY=X", label: "USD/JPY", formatter: "fx2" },
   WTI: { symbol: "CL=F", label: "WTI Crude", formatter: "currency" },
-  US10Y: { symbol: "^TNX", label: "US 10Y Treasury", formatter: "yield" },
 };
 const TREASURY_URL = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${new Date().getFullYear()}`;
 const NEWS_TOPICS = [

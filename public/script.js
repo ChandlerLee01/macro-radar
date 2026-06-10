@@ -655,6 +655,16 @@ function renderMetrics(marketData) {
 }
 
 function watchlistQuote(asset) {
+  const market = asset.marketId ? findMarket(latestMarkets, asset.marketId) : null;
+  if (market) {
+    return {
+      value: market.value,
+      change: market.change,
+      down: Boolean(market.down),
+      unavailable: false,
+    };
+  }
+
   const quote = latestWatchlistQuotes[asset.id];
   if (quote && !quote.unavailable) {
     return {
@@ -665,21 +675,11 @@ function watchlistQuote(asset) {
     };
   }
 
-  const market = asset.marketId ? findMarket(latestMarkets, asset.marketId) : null;
-  if (!market) {
-    return {
-      value: "--",
-      change: "--",
-      down: false,
-      unavailable: true,
-    };
-  }
-
   return {
-    value: market.value,
-    change: market.change,
-    down: Boolean(market.down),
-    unavailable: false,
+    value: "--",
+    change: "--",
+    down: false,
+    unavailable: true,
   };
 }
 
