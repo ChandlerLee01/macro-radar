@@ -241,7 +241,7 @@
             <h2 id="watchlistHeading" data-i18n="watchlistHeading">Favorite Assets</h2>
           </div>
           <button class="secondary-button" id="watchlistToggle" type="button" data-i18n="addAsset" aria-expanded="false">
-            Add Asset
+            + Add Asset
           </button>
         </div>
         <div class="watchlist-picker" id="watchlistPicker" hidden>
@@ -255,7 +255,11 @@
           />
           <div class="watchlist-options" id="watchlistOptions" role="listbox"></div>
         </div>
-        <div class="watchlist-grid" id="watchlistGrid"></div>
+        <div class="watchlist-grid" id="watchlistGrid">
+          <article class="watchlist-empty">
+            <strong data-i18n="watchlistEmpty">No favorite assets yet.</strong>
+          </article>
+        </div>
       </section>
 
       <section class="brief-panel" aria-labelledby="briefHeading">

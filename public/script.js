@@ -24,7 +24,7 @@ const translations = {
   en: {
     actionableInterpretation: "Actionable Interpretation",
     add: "Add",
-    addAsset: "Add Asset",
+    addAsset: "+ Add Asset",
     alertsEyebrow: "Macro Alert Engine",
     alertsUnavailable: "Alerts unavailable",
     analysisAppears: "Analysis will appear here.",
@@ -150,7 +150,7 @@ const translations = {
   zh: {
     actionableInterpretation: "可操作解读",
     add: "添加",
-    addAsset: "添加资产",
+    addAsset: "+ 添加资产",
     alertsEyebrow: "宏观预警引擎",
     alertsUnavailable: "预警不可用",
     analysisAppears: "分析结果将在这里显示。",
