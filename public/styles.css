@@ -329,6 +329,74 @@ h2 {
   text-align: right;
 }
 
+.account-panel {
+  margin: 0 0 16px;
+  border: 1px solid rgba(143, 160, 181, 0.2);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(103, 167, 255, 0.1), transparent 36%),
+    linear-gradient(180deg, rgba(20, 30, 44, 0.9), rgba(13, 19, 29, 0.92));
+  padding: 18px 20px;
+}
+
+.account-form,
+.account-session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.account-form[hidden],
+.account-session[hidden] {
+  display: none;
+}
+
+.account-form input {
+  min-width: min(100%, 220px);
+  flex: 1 1 180px;
+  border: 1px solid rgba(143, 160, 181, 0.22);
+  border-radius: 8px;
+  background: rgba(5, 10, 17, 0.72);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 12px 13px;
+  outline: none;
+}
+
+.account-form input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(103, 167, 255, 0.14);
+}
+
+.account-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.account-session {
+  justify-content: space-between;
+}
+
+.account-session strong {
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.account-message {
+  min-height: 18px;
+  margin: 10px 0 0;
+  color: var(--green);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.account-message.error {
+  color: var(--red);
+}
+
 .analyst-result {
   display: grid;
   gap: 16px;
@@ -482,6 +550,11 @@ h2 {
 .secondary-button:focus {
   border-color: rgba(103, 167, 255, 0.7);
   background: rgba(103, 167, 255, 0.18);
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .watchlist-picker {
@@ -1936,6 +2009,7 @@ h2 {
     left: 0;
   }
 
+  .account-panel,
   .analyst-panel,
   .forecast-panel,
   .watchlist-panel,
@@ -1952,6 +2026,7 @@ h2 {
     padding: 16px;
   }
 
+  .account-panel,
   .analyst-panel,
   .forecast-panel,
   .watchlist-panel,
@@ -2153,6 +2228,7 @@ h2 {
     max-width: 28rem;
   }
 
+  .account-panel,
   .analyst-panel,
   .forecast-panel,
   .watchlist-panel,

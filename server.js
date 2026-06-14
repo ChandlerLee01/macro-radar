@@ -196,6 +196,7 @@ const staticFiles = new Set([
   "/script.js",
   "/manifest.json",
   "/sw.js",
+  "/supabase.js",
   "/icon.svg",
   "/icons/apple-touch-icon.png",
   "/icons/icon-192.png",
@@ -2710,6 +2711,15 @@ async function handleRequest(request, response) {
     }
 
     await sendApiPayload(response, async () => analyzeMacroQuestion(await readRequestJson(request)));
+    return;
+  }
+
+  if (pathname === "/api/supabase-config") {
+    await sendApiPayload(response, async () => ({
+      supabaseUrl: process.env.SUPABASE_URL || "",
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+      configured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
+    }));
     return;
   }
 

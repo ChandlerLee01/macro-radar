@@ -21,6 +21,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <script src="supabase.js"></script>
   </head>
   <body>
     <main class="dashboard">
@@ -66,6 +67,37 @@
           </div>
         </div>
       </header>
+
+      <section class="account-panel" aria-labelledby="accountHeading">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow" data-i18n="accountEyebrow">Account</p>
+            <h2 id="accountHeading" data-i18n="accountHeading">Your Macro Radar account</h2>
+          </div>
+          <span class="tag" id="accountStatus" data-i18n="accountOptional">Optional</span>
+        </div>
+        <form class="account-form" id="accountForm">
+          <label class="sr-only" for="accountEmail" data-i18n="email">Email</label>
+          <input id="accountEmail" type="email" autocomplete="email" data-i18n-placeholder="email" placeholder="Email" />
+          <label class="sr-only" for="accountPassword" data-i18n="password">Password</label>
+          <input
+            id="accountPassword"
+            type="password"
+            autocomplete="current-password"
+            data-i18n-placeholder="password"
+            placeholder="Password"
+          />
+          <div class="account-actions">
+            <button class="secondary-button" id="accountSignUp" type="button" data-i18n="signUp">Sign Up</button>
+            <button class="primary-button" id="accountSignIn" type="submit" data-i18n="signIn">Sign In</button>
+          </div>
+        </form>
+        <div class="account-session" id="accountSession" hidden>
+          <strong id="accountGreeting">Hi</strong>
+          <button class="secondary-button" id="accountSignOut" type="button" data-i18n="logout">Logout</button>
+        </div>
+        <p class="account-message" id="accountMessage" role="status"></p>
+      </section>
 
       <section class="analyst-panel" aria-labelledby="analystHeading">
         <div class="section-heading analyst-heading">

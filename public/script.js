@@ -28,6 +28,11 @@ const CUSTOM_ALERT_ASSETS = WATCHLIST_ASSETS.filter((asset) =>
 const CUSTOM_ALERT_CONDITIONS = new Set([">", "<", ">=", "<="]);
 const translations = {
   en: {
+    accountCreated: "Account created",
+    accountEyebrow: "Account",
+    accountHeading: "Your Macro Radar account",
+    accountOptional: "Optional",
+    authFailed: "Authentication failed",
     actionableInterpretation: "Actionable Interpretation",
     add: "Add",
     addAsset: "+ Add Asset",
@@ -78,6 +83,7 @@ const translations = {
     defensiveDemand: "Defensive demand",
     defensiveDemandText: "Gold remains bid while investors monitor inflation and geopolitical risk.",
     disclaimer: "For educational and research purposes only. Not financial advice.",
+    email: "Email",
     enterQuestion: "Enter a macro or market question first.",
     error: "Error",
     englishName: "English",
@@ -117,6 +123,7 @@ const translations = {
     loadingLiveQuote: "Loading live quote",
     loadingMarketData: "Loading live market data...",
     loadingTimeline: "Loading timeline...",
+    logout: "Logout",
     localModel: "Local model",
     mainRisks: "Main Risks",
     marketDataUnavailable:
@@ -131,6 +138,7 @@ const translations = {
     fallbackData: "Fallback data",
     scenarioOutlook: "Scenario Outlook",
     overallView: "Overall View",
+    password: "Password",
     promptDollar: "What does a stronger dollar mean for equities?",
     promptGold: "Is gold bullish over the next 3 months?",
     promptRegime: "What is today’s macro risk regime?",
@@ -176,8 +184,17 @@ const translations = {
     removeAsset: "Remove asset",
     saveAlert: "Save Alert",
     searchAssets: "Search assets",
+    signedIn: "Signed in",
+    signedOut: "Signed out",
+    signIn: "Sign In",
+    signUp: "Sign Up",
   },
   zh: {
+    accountCreated: "账户已创建",
+    accountEyebrow: "账户",
+    accountHeading: "你的 Macro Radar 账户",
+    accountOptional: "可选",
+    authFailed: "认证失败",
     actionableInterpretation: "可操作解读",
     add: "添加",
     addAsset: "+ 添加资产",
@@ -228,6 +245,7 @@ const translations = {
     defensiveDemand: "防御性需求",
     defensiveDemandText: "黄金保持支撑，投资者继续关注通胀与地缘风险。",
     disclaimer: "仅供教育和研究用途。不构成投资建议。",
+    email: "邮箱",
     enterQuestion: "请先输入一个宏观或市场问题。",
     error: "错误",
     englishName: "English",
@@ -266,6 +284,7 @@ const translations = {
     loadingLiveQuote: "正在加载实时报价",
     loadingMarketData: "正在加载实时市场数据...",
     loadingTimeline: "正在加载时间线...",
+    logout: "退出登录",
     localModel: "本地模型",
     mainRisks: "主要风险",
     marketDataUnavailable: "实时市场数据暂时不可用。仪表盘将在 60 秒后自动重试。",
@@ -279,6 +298,7 @@ const translations = {
     fallbackData: "备用数据",
     scenarioOutlook: "情景展望",
     overallView: "总体观点",
+    password: "密码",
     promptDollar: "美元走强对股票意味着什么？",
     promptGold: "未来 3 个月黄金是否偏多？",
     promptRegime: "今天的宏观风险状态是什么？",
@@ -324,6 +344,10 @@ const translations = {
     removeAsset: "移除资产",
     saveAlert: "保存提醒",
     searchAssets: "搜索资产",
+    signedIn: "已登录",
+    signedOut: "已退出",
+    signIn: "登录",
+    signUp: "注册",
   },
 };
 const chartPeriods = {};
@@ -332,6 +356,9 @@ let latestWatchlistQuotes = {};
 let watchlistAssetIds = readStoredWatchlist();
 let customAlerts = readStoredCustomAlerts();
 let currentLanguage = readStoredLanguage();
+let currentUser = null;
+let accountMessageKey = "";
+let accountMessageIsError = false;
 
 async function configureNativeStatusBar() {
   const statusBar = window.Capacitor?.Plugins?.StatusBar;
@@ -513,8 +540,115 @@ function applyLanguage() {
     analystProvider.textContent = t("researchMode");
   }
 
+  renderAccount(currentUser);
+  if (accountMessageKey) {
+    setAccountMessage(accountMessageKey, accountMessageIsError);
+  }
   renderWatchlist();
   renderWatchlistOptions();
+}
+
+function setAccountLoading(isLoading) {
+  ["#accountEmail", "#accountPassword", "#accountSignUp", "#accountSignIn", "#accountSignOut"].forEach((selector) => {
+    const element = document.querySelector(selector);
+    if (element) {
+      element.disabled = isLoading;
+    }
+  });
+
+  const status = document.querySelector("#accountStatus");
+  if (status) {
+    status.textContent = isLoading ? t("loading") : t("accountOptional");
+  }
+}
+
+function setAccountMessage(messageKey, isError = false) {
+  accountMessageKey = messageKey;
+  accountMessageIsError = isError;
+  const message = document.querySelector("#accountMessage");
+  if (!message) return;
+
+  message.textContent = t(messageKey);
+  message.classList.toggle("error", isError);
+}
+
+function renderAccount(user = null) {
+  currentUser = user;
+  const form = document.querySelector("#accountForm");
+  const session = document.querySelector("#accountSession");
+  const greeting = document.querySelector("#accountGreeting");
+  if (!form || !session || !greeting) return;
+
+  form.hidden = Boolean(user);
+  session.hidden = !user;
+  if (user) {
+    greeting.textContent = `Hi, ${user.email || "Macro Radar"}`;
+  }
+
+  setAccountLoading(false);
+}
+
+async function initializeAccount() {
+  renderAccount(null);
+  if (!window.MacroRadarAuth) {
+    setAccountMessage("authFailed", true);
+    return;
+  }
+
+  try {
+    setAccountLoading(true);
+    const user = await window.MacroRadarAuth.getCurrentUser();
+    renderAccount(user);
+    if (!user && window.MacroRadarAuth.getLastError?.()) {
+      setAccountMessage("authFailed", true);
+    }
+    await window.MacroRadarAuth.onAuthStateChange((nextUser) => {
+      renderAccount(nextUser);
+    });
+  } catch (error) {
+    console.error("Account initialization failed", error);
+    setAccountMessage("authFailed", true);
+    renderAccount(null);
+  }
+}
+
+async function handleAccountAction(action) {
+  const email = document.querySelector("#accountEmail")?.value.trim() || "";
+  const password = document.querySelector("#accountPassword")?.value || "";
+  if (!email || !password) {
+    setAccountMessage("authFailed", true);
+    return;
+  }
+
+  try {
+    setAccountLoading(true);
+    const result =
+      action === "signup"
+        ? await window.MacroRadarAuth.signUp(email, password)
+        : await window.MacroRadarAuth.signIn(email, password);
+    const user = result.user || (await window.MacroRadarAuth.getCurrentUser());
+    renderAccount(user);
+    setAccountMessage(action === "signup" ? "accountCreated" : "signedIn");
+  } catch (error) {
+    console.error("Authentication failed", error);
+    setAccountMessage("authFailed", true);
+  } finally {
+    setAccountLoading(false);
+  }
+}
+
+async function handleSignOut() {
+  try {
+    setAccountLoading(true);
+    await window.MacroRadarAuth.signOut();
+    renderAccount(null);
+    setAccountMessage("signedOut");
+  } catch (error) {
+    console.error("Sign out failed", error);
+    setAccountMessage("authFailed", true);
+  } finally {
+    setAccountLoading(false);
+  }
 }
 
 function setLanguage(language) {
@@ -1659,6 +1793,31 @@ document.addEventListener("focusin", (event) => {
   updateChartReadout(card, Number(point.dataset.pointIndex));
 });
 
+addSafeListener("#accountForm", "submit", (event) => {
+  event.preventDefault();
+  if (!window.MacroRadarAuth) {
+    setAccountMessage("authFailed", true);
+    return;
+  }
+  handleAccountAction("signin");
+});
+
+addSafeListener("#accountSignUp", "click", () => {
+  if (!window.MacroRadarAuth) {
+    setAccountMessage("authFailed", true);
+    return;
+  }
+  handleAccountAction("signup");
+});
+
+addSafeListener("#accountSignOut", "click", () => {
+  if (!window.MacroRadarAuth) {
+    setAccountMessage("authFailed", true);
+    return;
+  }
+  handleSignOut();
+});
+
 addSafeListener("#analystForm", "submit", (event) => {
   event.preventDefault();
   const question = document.querySelector("#analystQuestion")?.value.trim() || "";
@@ -1795,6 +1954,7 @@ async function initializeApp() {
   try {
     configureNativeStatusBar();
     applyLanguage();
+    initializeAccount();
     renderLoading();
     renderNewsLoading();
   } catch (error) {

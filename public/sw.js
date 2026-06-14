@@ -5,6 +5,7 @@ const STATIC_ASSETS = [
   "/index.html",
   "/styles.css",
   "/script.js",
+  "/supabase.js",
   "/manifest.json",
   "/icon.svg",
   "/icons/apple-touch-icon.png",
