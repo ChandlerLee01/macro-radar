@@ -11,7 +11,7 @@ const STATIC_ASSETS = [
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
-const API_ROUTES = ["/api/markets", "/api/news", "/api/brief", "/api/timeline", "/api/alerts"];
+const API_ROUTES = ["/api/markets", "/api/news", "/api/brief", "/api/timeline", "/api/alerts", "/api/forecast"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
