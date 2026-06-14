@@ -2,6 +2,7 @@ const REFRESH_MS = 60_000;
 const NEWS_REFRESH_MS = 120_000;
 const BRIEF_REFRESH_MS = 300_000;
 const ALERT_REFRESH_MS = 60_000;
+const API_TIMEOUT_MS = 25_000;
 const API_CACHE_PREFIX = "macro-radar:api:";
 const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
 const LANGUAGE_KEY = "macro-radar:language";
@@ -564,9 +565,27 @@ function writeCachedPayload(key, payload) {
   }
 }
 
+function addSafeListener(selector, eventName, handler) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    console.warn(`Skipping ${eventName} listener for missing element: ${selector}`);
+    return null;
+  }
+
+  element.addEventListener(eventName, handler);
+  return element;
+}
+
 async function fetchJsonWithSnapshot(url, cacheKey, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
   try {
-    const response = await fetch(url, { cache: "no-store", ...options });
+    const response = await fetch(url, {
+      ...options,
+      cache: "no-store",
+      signal: options.signal || controller.signal,
+    });
     const payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.error || `${url} returned ${response.status}`);
@@ -579,6 +598,8 @@ async function fetchJsonWithSnapshot(url, cacheKey, options = {}) {
       return { payload: cached, fromCache: true, error };
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -1495,6 +1516,7 @@ async function refreshMarkets() {
       minute: "2-digit",
     });
     setStatus(isFallback ? t("fallbackData") : `${t("live")} • ${t("updated")} ${updatedTime}`, isFallback ? "fallback" : "live");
+    console.log("markets loaded");
   } catch (error) {
     setStatus(latestMarkets.length ? t("fallbackData") : t("dataUnavailable"), latestMarkets.length ? "fallback" : "error");
     if (!latestMarkets.length) {
@@ -1512,6 +1534,7 @@ async function refreshForecast() {
     if (fromCache) {
       document.querySelector("#forecastProvider").textContent = t("offlineSnapshot");
     }
+    console.log("forecast loaded");
   } catch (error) {
     document.querySelector("#forecastProvider").textContent = t("unavailable");
     document.querySelector("#forecastGrid").innerHTML = `
@@ -1592,6 +1615,7 @@ async function refreshAlerts() {
     if (fromCache) {
       document.querySelector("#alertsStatus").textContent = t("offlineSnapshot");
     }
+    console.log("alerts loaded");
   } catch (error) {
     document.querySelector("#alertsStatus").textContent = t("alertsUnavailable");
     document.querySelector("#alertsList").innerHTML = `
@@ -1631,9 +1655,9 @@ document.addEventListener("focusin", (event) => {
   updateChartReadout(card, Number(point.dataset.pointIndex));
 });
 
-document.querySelector("#analystForm").addEventListener("submit", (event) => {
+addSafeListener("#analystForm", "submit", (event) => {
   event.preventDefault();
-  const question = document.querySelector("#analystQuestion").value.trim();
+  const question = document.querySelector("#analystQuestion")?.value.trim() || "";
   if (!question) {
     renderAnalystError(t("enterQuestion"));
     return;
@@ -1646,70 +1670,79 @@ document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-example-prompt]");
   if (!button) return;
 
-  document.querySelector("#analystQuestion").value = button.dataset.examplePrompt;
-  document.querySelector("#analystQuestion").focus();
+  const analystQuestion = document.querySelector("#analystQuestion");
+  if (!analystQuestion) return;
+
+  analystQuestion.value = button.dataset.examplePrompt;
+  analystQuestion.focus();
 });
 
-document.querySelector("#watchlistToggle").addEventListener("click", () => {
+addSafeListener("#watchlistToggle", "click", () => {
   const picker = document.querySelector("#watchlistPicker");
   setWatchlistPicker(Boolean(picker?.hidden));
   renderWatchlistOptions();
 });
 
-document.querySelector("#watchlistSearch").addEventListener("input", renderWatchlistOptions);
+addSafeListener("#watchlistSearch", "input", renderWatchlistOptions);
 
-document.querySelector("#watchlistOptions").addEventListener("click", (event) => {
+addSafeListener("#watchlistOptions", "click", (event) => {
   const option = event.target.closest("[data-add-watchlist]");
   if (!option) return;
 
   addWatchlistAsset(option.dataset.addWatchlist);
-  document.querySelector("#watchlistSearch").value = "";
+  const search = document.querySelector("#watchlistSearch");
+  if (search) {
+    search.value = "";
+  }
   setWatchlistPicker(false);
 });
 
-document.querySelector("#watchlistGrid").addEventListener("click", (event) => {
+addSafeListener("#watchlistGrid", "click", (event) => {
   const removeButton = event.target.closest("[data-remove-watchlist]");
   if (!removeButton) return;
 
   removeWatchlistAsset(removeButton.dataset.removeWatchlist);
 });
 
-document.querySelector("#customAlertToggle").addEventListener("click", () => {
+addSafeListener("#customAlertToggle", "click", () => {
   setCustomAlertModal(true);
 });
 
-document.querySelector("#customAlertClose").addEventListener("click", () => {
+addSafeListener("#customAlertClose", "click", () => {
   setCustomAlertModal(false);
 });
 
-document.querySelector("#customAlertCancel").addEventListener("click", () => {
+addSafeListener("#customAlertCancel", "click", () => {
   setCustomAlertModal(false);
 });
 
-document.querySelector("#customAlertModal").addEventListener("click", (event) => {
+addSafeListener("#customAlertModal", "click", (event) => {
   if (event.target.id === "customAlertModal") {
     setCustomAlertModal(false);
   }
 });
 
-document.querySelector("#customAlertForm").addEventListener("submit", (event) => {
+addSafeListener("#customAlertForm", "submit", (event) => {
   event.preventDefault();
   const result = addCustomAlert({
-    assetId: document.querySelector("#customAlertAsset").value,
-    condition: document.querySelector("#customAlertCondition").value,
-    target: document.querySelector("#customAlertTarget").value,
+    assetId: document.querySelector("#customAlertAsset")?.value,
+    condition: document.querySelector("#customAlertCondition")?.value,
+    target: document.querySelector("#customAlertTarget")?.value,
   });
 
   if (result.error) {
-    document.querySelector("#customAlertError").textContent = result.error;
+    const errorLabel = document.querySelector("#customAlertError");
+    if (errorLabel) {
+      errorLabel.textContent = result.error;
+    }
     return;
   }
 
-  document.querySelector("#customAlertForm").reset();
+  document.querySelector("#customAlertForm")?.reset();
   setCustomAlertModal(false);
 });
 
-document.querySelector("#customAlertsGrid").addEventListener("click", (event) => {
+addSafeListener("#customAlertsGrid", "click", (event) => {
   const deleteButton = event.target.closest("[data-delete-custom-alert]");
   if (!deleteButton) return;
 
@@ -1718,18 +1751,18 @@ document.querySelector("#customAlertsGrid").addEventListener("click", (event) =>
   renderCustomAlerts();
 });
 
-document.querySelector("#languageMenuButton").addEventListener("click", (event) => {
+addSafeListener("#languageMenuButton", "click", (event) => {
   event.stopPropagation();
   toggleLanguageDropdown();
 });
 
-document.querySelector("#languageDropdown").addEventListener("click", (event) => {
+addSafeListener("#languageDropdown", "click", (event) => {
   const option = event.target.closest("[data-language-choice]");
   if (!option) return;
 
   setLanguage(option.dataset.languageChoice);
   closeLanguageDropdown();
-  document.querySelector("#languageMenuButton").focus();
+  document.querySelector("#languageMenuButton")?.focus();
 });
 
 document.addEventListener("click", (event) => {
@@ -1742,7 +1775,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeLanguageDropdown();
     setCustomAlertModal(false);
-    document.querySelector("#languageMenuButton").focus();
+    document.querySelector("#languageMenuButton")?.focus();
   }
 });
 
@@ -1754,18 +1787,31 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-configureNativeStatusBar();
-applyLanguage();
-renderLoading();
-renderNewsLoading();
-refreshMarkets();
-refreshForecast();
-refreshNews();
-refreshBrief();
-refreshAlerts();
-setInterval(refreshMarkets, REFRESH_MS);
-setInterval(refreshForecast, BRIEF_REFRESH_MS);
-setInterval(refreshNews, NEWS_REFRESH_MS);
-setInterval(refreshBrief, BRIEF_REFRESH_MS);
-setInterval(refreshTimeline, BRIEF_REFRESH_MS);
-setInterval(refreshAlerts, ALERT_REFRESH_MS);
+async function initializeApp() {
+  try {
+    configureNativeStatusBar();
+    applyLanguage();
+    renderLoading();
+    renderNewsLoading();
+  } catch (error) {
+    console.error("Initialization setup failed", error);
+  }
+
+  await Promise.allSettled([
+    refreshMarkets(),
+    refreshForecast(),
+    refreshNews(),
+    refreshBrief(),
+    refreshAlerts(),
+  ]);
+  console.log("initialization complete");
+
+  setInterval(refreshMarkets, REFRESH_MS);
+  setInterval(refreshForecast, BRIEF_REFRESH_MS);
+  setInterval(refreshNews, NEWS_REFRESH_MS);
+  setInterval(refreshBrief, BRIEF_REFRESH_MS);
+  setInterval(refreshTimeline, BRIEF_REFRESH_MS);
+  setInterval(refreshAlerts, ALERT_REFRESH_MS);
+}
+
+initializeApp();

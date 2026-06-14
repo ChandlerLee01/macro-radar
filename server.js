@@ -2223,7 +2223,15 @@ async function fetchDailyBrief() {
     return briefCache;
   }
 
-  const [marketsPayload, newsPayload] = await Promise.all([fetchMarketsSafe(), fetchMacroNews()]);
+  const [marketsResult, newsResult] = await Promise.allSettled([fetchMarketsSafe(), fetchMacroNews()]);
+  const marketsPayload =
+    marketsResult.status === "fulfilled"
+      ? marketsResult.value
+      : buildFallbackMarketPayload(marketsResult.reason?.message || "Market data unavailable");
+  const newsPayload =
+    newsResult.status === "fulfilled"
+      ? newsResult.value
+      : buildFallbackNews(newsResult.reason?.message || "Macro news unavailable");
   const brief = buildDailyBrief(marketsPayload, newsPayload);
   brief.file = path.relative(ROOT, await saveDailyBrief(brief));
   briefCache = brief;
