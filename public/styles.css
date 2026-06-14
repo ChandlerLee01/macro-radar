@@ -1434,6 +1434,15 @@ h2 {
   margin-bottom: 20px;
 }
 
+.section-subtitle {
+  max-width: 520px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 #marketSummary {
   max-width: 780px;
   color: #c8d5e6;

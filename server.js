@@ -45,6 +45,120 @@ const WATCHLIST_YAHOO_SYMBOLS = {
   WTI: { symbol: "CL=F", label: "WTI Crude", formatter: "currency" },
 };
 const FORECAST_ASSETS = ["Gold", "SPX", "DXY", "US10Y", "BTC", "ETH", "WTI"];
+const FORECAST_PLAYBOOK = {
+  Gold: {
+    name: "Gold",
+    bullishScenario:
+      "Gold's constructive case improves if Treasury yields stop rising, the dollar softens, and inflation or safe-haven headlines keep hedge demand alive.",
+    bearishScenario:
+      "The cautious case is higher real-rate pressure: firmer yields and a stronger dollar would raise the opportunity cost of holding gold.",
+    keyTriggers: [
+      "US10Y direction and real-rate repricing",
+      "DXY follow-through versus gold's latest move",
+      "Inflation and geopolitical headline intensity",
+    ],
+    invalidatingSignals: [
+      "Yields rise while gold loses momentum",
+      "Dollar strength broadens without safe-haven demand",
+    ],
+  },
+  SPX: {
+    name: "S&P 500",
+    bullishScenario:
+      "The S&P 500 case improves if risk appetite broadens, earnings sentiment holds up, and rates stabilize enough to support equity multiples.",
+    bearishScenario:
+      "The downside case is a narrow rally meeting rate pressure: higher yields, weaker breadth, or cautious earnings headlines would leave equities more fragile.",
+    keyTriggers: [
+      "Market breadth and cyclicals versus defensives",
+      "Earnings revisions and margin commentary",
+      "Treasury-yield moves that affect valuation multiples",
+    ],
+    invalidatingSignals: [
+      "Breadth deteriorates while index levels hold up",
+      "Rate-shock alerts outweigh earnings support",
+    ],
+  },
+  DXY: {
+    name: "US Dollar Index",
+    bullishScenario:
+      "The dollar's upside case strengthens when liquidity tightens, Fed repricing turns more hawkish, and US rate differentials move in its favor.",
+    bearishScenario:
+      "The softer-dollar case builds if global risk appetite improves, rate differentials compress, or markets price easier Fed policy.",
+    keyTriggers: [
+      "Fed repricing and front-end rate expectations",
+      "US yield advantage versus global peers",
+      "Liquidity stress or risk-off confirmation",
+    ],
+    invalidatingSignals: [
+      "Rate differentials move against the dollar",
+      "Risk appetite improves without liquidity stress",
+    ],
+  },
+  US10Y: {
+    name: "US 10Y Treasury",
+    bullishScenario:
+      "The higher-yield case is supported by Treasury supply pressure, sticky inflation data, or Fed expectations shifting toward tighter policy.",
+    bearishScenario:
+      "The lower-yield case develops if growth concerns rise, inflation data cools, or markets bring forward expectations for easier policy.",
+    keyTriggers: [
+      "Treasury auction demand and supply headlines",
+      "CPI, PCE, and wage inflation surprises",
+      "Fed communication around the policy path",
+    ],
+    invalidatingSignals: [
+      "Inflation data cools while yields fail to hold highs",
+      "Strong auction demand offsets supply concerns",
+    ],
+  },
+  BTC: {
+    name: "Bitcoin",
+    bullishScenario:
+      "Bitcoin's constructive case improves when risk appetite is firm, liquidity conditions loosen, the dollar fades, and crypto sentiment remains resilient.",
+    bearishScenario:
+      "The cautious case is macro liquidity tightening: a stronger dollar, higher yields, or weaker speculative appetite would pressure crypto beta.",
+    keyTriggers: [
+      "Dollar and liquidity signals",
+      "Equity risk appetite and high-beta leadership",
+      "Crypto sentiment and headline risk",
+    ],
+    invalidatingSignals: [
+      "DXY and yields rise together",
+      "Crypto sentiment weakens despite stable equities",
+    ],
+  },
+  ETH: {
+    name: "Ethereum",
+    bullishScenario:
+      "Ethereum's upside case depends on crypto beta improving alongside liquidity, stronger risk appetite, and a supportive tone across digital-asset headlines.",
+    bearishScenario:
+      "The bearish case is ETH underperforming as liquidity tightens or risk appetite fades, leaving higher-beta crypto exposure vulnerable.",
+    keyTriggers: [
+      "BTC leadership and ETH relative strength",
+      "Liquidity-sensitive risk appetite",
+      "Digital-asset headlines and network sentiment",
+    ],
+    invalidatingSignals: [
+      "ETH lags while broader crypto momentum fades",
+      "Risk-off conditions dominate liquidity-sensitive assets",
+    ],
+  },
+  WTI: {
+    name: "WTI Crude",
+    bullishScenario:
+      "WTI's constructive case strengthens if supply risk rises, demand indicators hold up, and geopolitical headlines keep an energy-risk premium in the tape.",
+    bearishScenario:
+      "The downside case is demand softness overpowering supply risk, especially if the dollar firms and growth-sensitive commodities lose support.",
+    keyTriggers: [
+      "OPEC, inventory, and supply-disruption headlines",
+      "Global demand signals and growth revisions",
+      "Dollar strength versus commodity risk appetite",
+    ],
+    invalidatingSignals: [
+      "Inventory builds weaken the supply-risk narrative",
+      "Demand headlines deteriorate while the dollar strengthens",
+    ],
+  },
+};
 const TREASURY_URL = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${new Date().getFullYear()}`;
 const NEWS_TOPICS = [
   "Federal Reserve",
@@ -1133,26 +1247,34 @@ function generateLocalForecast(context) {
     updatedAt: new Date().toISOString(),
     provider: "local",
     items: context.assets.map((asset) => {
+      const playbook = FORECAST_PLAYBOOK[asset.asset] || {
+        name: asset.name,
+        bullishScenario:
+          "The constructive case improves if recent trend confirms the current regime and macro headlines support risk-adjusted positioning.",
+        bearishScenario:
+          "The cautious case builds if the regime shifts, alerts turn adverse, or cross-asset signals contradict the latest move.",
+        keyTriggers: [
+          `${asset.name} trend confirmation`,
+          "Regime and alert confirmation",
+          "Macro headline follow-through",
+        ],
+        invalidatingSignals: [
+          "Regime shift against the outlook",
+          "Alerts firing in the opposite direction",
+        ],
+      };
       const outlook = localForecastOutlook(asset, context);
       const confidence = clamp(Math.round((context.regime?.confidence || 62) - (outlook === "Neutral" ? 14 : 6)), 42, 86);
       const regimeLabel = context.regime?.label || "Neutral";
+      const moveText = asset.change && asset.change !== "--" ? ` after the latest ${asset.change} move` : "";
       return {
         asset: asset.asset,
         outlook,
         confidence,
-        bullishScenario: `${asset.name} would screen more constructively if the current ${regimeLabel} backdrop is confirmed by follow-through in recent trend, calmer alerts, and supportive headline flow. This is a research scenario, not a price forecast.`,
-        bearishScenario: `${asset.name} would screen more cautiously if the dollar, rates, or risk sentiment move against the current setup and headlines reinforce macro stress rather than stabilization.`,
-        keyTriggers: [
-          `${asset.name} trend confirmation versus the latest ${asset.change} move`,
-          `Regime engine staying in or shifting away from ${regimeLabel}`,
-          "Dollar and Treasury-yield confirmation across the next refresh cycle",
-          "Macro headlines aligning with the daily brief risk summary",
-        ],
-        invalidatingSignals: [
-          "A regime shift that contradicts the current cross-asset read",
-          "Alerts firing in the opposite direction of the outlook",
-          "A reversal in dollar, yields, or equity risk appetite",
-        ],
+        bullishScenario: `${playbook.bullishScenario} The current ${regimeLabel} regime frames the read${moveText}, but this is not a price forecast.`,
+        bearishScenario: playbook.bearishScenario,
+        keyTriggers: playbook.keyTriggers,
+        invalidatingSignals: playbook.invalidatingSignals,
       };
     }),
   };
@@ -1171,7 +1293,7 @@ function buildOpenAiForecastPayload(context) {
         role: "user",
         content: JSON.stringify({
           task:
-            "Generate a market outlook for each supported asset using current market data, regime, alerts, daily brief, headlines, and recent trend. Use scenario language rather than price targets.",
+            "Generate a concise, asset-specific scenario outlook for each supported asset using current market data, regime, alerts, daily brief, headlines, and recent trend. This is scenario research, not a price forecast.",
           assets: FORECAST_ASSETS,
           requiredFields: [
             "asset",
@@ -1181,6 +1303,20 @@ function buildOpenAiForecastPayload(context) {
             "bearishScenario",
             "keyTriggers",
             "invalidatingSignals",
+          ],
+          styleRules: [
+            "Use Bloomberg / Goldman Sachs / Bridgewater institutional macro tone.",
+            "Each bullishScenario and bearishScenario must be asset-specific and no two assets may use identical wording.",
+            "Each scenario must be concise: 1-2 sentences only.",
+            "Do not say buy, sell, price target, guaranteed, or recommendation.",
+            "Gold must reference yields, dollar, safe-haven demand, or inflation headlines.",
+            "SPX must reference risk appetite, earnings sentiment, rates, or breadth.",
+            "DXY must reference liquidity, Fed repricing, or rate differentials.",
+            "US10Y must reference Treasury supply, Fed expectations, or inflation data.",
+            "BTC must reference risk appetite, liquidity, dollar, or crypto sentiment.",
+            "ETH must reference crypto beta, liquidity, or risk appetite.",
+            "WTI must reference supply risk, demand, dollar, or geopolitical headlines.",
+            "keyTriggers and invalidatingSignals must be asset-specific and compact.",
           ],
           context,
         }),

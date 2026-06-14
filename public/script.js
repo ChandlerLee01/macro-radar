@@ -83,15 +83,16 @@ const translations = {
     englishName: "English",
     feedRetry: "The feed will retry automatically.",
     fetchingNews: "Fetching live news feed",
-    forecastBearishScenario: "Bearish Scenario",
-    forecastBullishScenario: "Bullish Scenario",
+    forecastBearishScenario: "Bearish Case",
+    forecastBullishScenario: "Bullish Case",
     forecastCouldNotLoad: "Market outlook unavailable.",
     forecastEyebrow: "Market Outlook",
     forecastHeading: "Forecast Engine",
-    forecastInvalidatingSignals: "Invalidating Signals",
-    forecastKeyTriggers: "Key Triggers",
+    forecastInvalidatingSignals: "Invalidated If",
+    forecastKeyTriggers: "Watch Triggers",
     forecastLoading: "Generating market outlook...",
     forecastOutlook: "Outlook",
+    forecastSubtitle: "Scenario-based outlook using live market signals. Not a price forecast.",
     generated: "Generated",
     generateAnalysis: "Generate Analysis",
     generating: "Generating",
@@ -128,6 +129,7 @@ const translations = {
     offlineSnapshot: "Offline snapshot",
     offlineSnapshotShown: "Offline snapshot shown. Reconnect to generate fresh analysis.",
     fallbackData: "Fallback data",
+    scenarioOutlook: "Scenario Outlook",
     overallView: "Overall View",
     promptDollar: "What does a stronger dollar mean for equities?",
     promptGold: "Is gold bullish over the next 3 months?",
@@ -231,15 +233,16 @@ const translations = {
     englishName: "English",
     feedRetry: "新闻流将自动重试。",
     fetchingNews: "正在获取实时新闻",
-    forecastBearishScenario: "利空情景",
-    forecastBullishScenario: "利好情景",
+    forecastBearishScenario: "利空情形",
+    forecastBullishScenario: "利多情形",
     forecastCouldNotLoad: "市场展望不可用。",
     forecastEyebrow: "市场展望",
     forecastHeading: "预测引擎",
-    forecastInvalidatingSignals: "失效信号",
-    forecastKeyTriggers: "关键触发因素",
+    forecastInvalidatingSignals: "失效条件",
+    forecastKeyTriggers: "观察触发因素",
     forecastLoading: "正在生成市场展望...",
     forecastOutlook: "展望",
+    forecastSubtitle: "基于实时市场信号的情景展望，不是价格预测。",
     generated: "已生成",
     generateAnalysis: "生成分析",
     generating: "生成中",
@@ -274,6 +277,7 @@ const translations = {
     offlineSnapshot: "离线快照",
     offlineSnapshotShown: "已显示离线快照。重新连接后可生成最新分析。",
     fallbackData: "备用数据",
+    scenarioOutlook: "情景展望",
     overallView: "总体观点",
     promptDollar: "美元走强对股票意味着什么？",
     promptGold: "未来 3 个月黄金是否偏多？",
@@ -1055,11 +1059,11 @@ function renderDailyBrief(payload) {
 }
 
 function forecastList(items = []) {
-  return items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  return items.slice(0, 3).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
 }
 
 function renderForecast(payload) {
-  const provider = payload.provider === "openai" ? "OpenAI" : t("localModel");
+  const provider = t("scenarioOutlook");
   document.querySelector("#forecastProvider").textContent = provider;
   document.querySelector("#forecastGrid").innerHTML = (payload.items || [])
     .map(
