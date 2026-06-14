@@ -836,6 +836,7 @@ function renderPushSettings() {
 function loadOneSignalSdk() {
   if (window.OneSignal) return Promise.resolve();
   if (oneSignalLoadPromise) return oneSignalLoadPromise;
+  if (document.querySelector(`script[src="${ONESIGNAL_SDK_URL}"]`)) return Promise.resolve();
 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   oneSignalLoadPromise = new Promise((resolve, reject) => {
@@ -891,12 +892,19 @@ function pushErrorMessage(error) {
 }
 
 function runOneSignal(callback) {
+  if (window.OneSignal) {
+    return Promise.resolve(callback(window.OneSignal));
+  }
+
   return new Promise((resolve, reject) => {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
+    const timeoutId = setTimeout(() => reject(new Error("OneSignal SDK did not initialize")), 10_000);
     window.OneSignalDeferred.push(async (OneSignal) => {
       try {
+        clearTimeout(timeoutId);
         resolve(await callback(OneSignal));
       } catch (error) {
+        clearTimeout(timeoutId);
         reject(error);
       }
     });
@@ -927,11 +935,14 @@ async function enablePushNotifications() {
     await loadOneSignalSdk();
     console.log("window.OneSignal exists after SDK load?", Boolean(window.OneSignal));
     await runOneSignal(async (OneSignal) => {
-      await OneSignal.init({
-        appId: config.appId,
-        serviceWorkerPath: "OneSignalSDKWorker.js",
-        serviceWorkerParam: { scope: "/" },
-      });
+      if (!window.MacroRadarOneSignalInitialized) {
+        await OneSignal.init({
+          appId: config.appId,
+          serviceWorkerPath: "OneSignalSDKWorker.js",
+          serviceWorkerParam: { scope: "/" },
+        });
+        window.MacroRadarOneSignalInitialized = true;
+      }
       await OneSignal.Notifications.requestPermission();
       if (!OneSignal.Notifications.permission) {
         throw new Error("Permission denied");
