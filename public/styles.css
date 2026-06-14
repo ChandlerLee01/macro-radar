@@ -661,6 +661,191 @@ h2 {
   align-items: center;
 }
 
+.custom-alerts-panel {
+  margin: 0 0 16px;
+  border: 1px solid rgba(245, 180, 85, 0.26);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(245, 180, 85, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(20, 30, 44, 0.96), rgba(13, 19, 29, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+  padding: 20px;
+}
+
+.custom-alerts-heading {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.custom-alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.custom-alert-card,
+.custom-alert-empty {
+  min-width: 0;
+  border: 1px solid rgba(143, 160, 181, 0.17);
+  border-radius: 8px;
+  background: rgba(5, 10, 17, 0.34);
+  padding: 14px;
+}
+
+.custom-alert-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.custom-alert-card.triggered {
+  border-color: rgba(245, 180, 85, 0.55);
+  background: rgba(245, 180, 85, 0.1);
+}
+
+.custom-alert-card span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.custom-alert-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.96rem;
+}
+
+.custom-alert-card p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.custom-alert-status {
+  border: 1px solid rgba(143, 160, 181, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 6px 9px;
+  text-transform: uppercase;
+}
+
+.custom-alert-card.triggered .custom-alert-status {
+  border-color: rgba(245, 180, 85, 0.55);
+  color: var(--gold);
+}
+
+.custom-alert-card button,
+.modal-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(143, 160, 181, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.custom-alert-card button:hover,
+.custom-alert-card button:focus,
+.modal-close:hover,
+.modal-close:focus {
+  border-color: rgba(255, 111, 125, 0.45);
+  color: var(--red);
+}
+
+.custom-alert-empty {
+  grid-column: 1 / -1;
+  min-height: 64px;
+  display: grid;
+  align-items: center;
+  color: var(--muted);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(2, 6, 12, 0.72);
+  padding: 18px;
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.custom-alert-modal {
+  width: min(100%, 460px);
+  border: 1px solid rgba(143, 160, 181, 0.26);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(20, 30, 44, 0.98), rgba(13, 19, 29, 0.98));
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.45);
+  padding: 20px;
+}
+
+.custom-alert-modal-heading {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.custom-alert-form {
+  display: grid;
+  gap: 12px;
+}
+
+.custom-alert-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.custom-alert-form select,
+.custom-alert-form input {
+  width: 100%;
+  border: 1px solid rgba(143, 160, 181, 0.22);
+  border-radius: 8px;
+  background: rgba(5, 10, 17, 0.72);
+  color: var(--text);
+  font: inherit;
+  padding: 12px 13px;
+  outline: none;
+}
+
+.custom-alert-form select:focus,
+.custom-alert-form input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(103, 167, 255, 0.14);
+}
+
+.custom-alert-error {
+  min-height: 18px;
+  color: var(--red);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .daily-brief-panel {
   margin-bottom: 16px;
   border: 1px solid rgba(103, 167, 255, 0.26);
@@ -1524,6 +1709,7 @@ h2 {
   .metrics-grid,
   .watchlist-grid,
   .watchlist-options,
+  .custom-alerts-grid,
   .daily-brief-grid,
   .summary-layout,
   .regime-body,
@@ -1623,6 +1809,7 @@ h2 {
 
   .analyst-panel,
   .watchlist-panel,
+  .custom-alerts-panel,
   .daily-brief-panel,
   .regime-panel,
   .alerts-panel,
@@ -1637,6 +1824,7 @@ h2 {
 
   .analyst-panel,
   .watchlist-panel,
+  .custom-alerts-panel,
   .daily-brief-panel,
   .metrics-grid,
   .regime-panel,
@@ -1650,6 +1838,7 @@ h2 {
 
   .analyst-heading,
   .watchlist-heading,
+  .custom-alerts-heading,
   .daily-brief-heading,
   .regime-heading,
   .alerts-heading,
@@ -1748,6 +1937,7 @@ h2 {
   .metrics-grid,
   .watchlist-grid,
   .watchlist-options,
+  .custom-alerts-grid,
   .daily-brief-grid,
   .summary-layout,
   .summary-points,
@@ -1828,6 +2018,7 @@ h2 {
 
   .analyst-panel,
   .watchlist-panel,
+  .custom-alerts-panel,
   .daily-brief-panel,
   .regime-panel,
   .alerts-panel,

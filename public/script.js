@@ -6,6 +6,7 @@ const API_CACHE_PREFIX = "macro-radar:api:";
 const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
 const LANGUAGE_KEY = "macro-radar:language";
 const WATCHLIST_KEY = "macro-radar:watchlist";
+const CUSTOM_ALERTS_KEY = "macro-radar:custom-alerts";
 const DEFAULT_LANGUAGE = "en";
 const WATCHLIST_ASSETS = [
   { id: "SPX", name: "S&P 500", marketId: "spx" },
@@ -20,6 +21,10 @@ const WATCHLIST_ASSETS = [
   { id: "WTI", name: "WTI Crude", providerSymbol: "CL=F" },
   { id: "US10Y", name: "US 10Y Treasury", marketId: "tenYear" },
 ];
+const CUSTOM_ALERT_ASSETS = WATCHLIST_ASSETS.filter((asset) =>
+  ["Gold", "SPX", "DXY", "US10Y", "BTC", "ETH", "Silver", "WTI", "EURUSD", "USDJPY"].includes(asset.id),
+);
+const CUSTOM_ALERT_CONDITIONS = new Set([">", "<", ">=", "<="]);
 const translations = {
   en: {
     actionableInterpretation: "Actionable Interpretation",
@@ -41,6 +46,7 @@ const translations = {
     bullishFactors: "Bullish Factors",
     cached: "Cached",
     calculating: "Calculating...",
+    cancel: "Cancel",
     chartDataUnavailable: "Chart data unavailable",
     chartsEyebrow: "Interactive Charts",
     chartsHeading: "1D / 1W Asset Moves",
@@ -51,6 +57,12 @@ const translations = {
     connecting: "Connecting...",
     couldNotLoadAlerts: "Could not load macro alerts.",
     couldNotLoadTimeline: "Could not load historical briefs.",
+    customAlertsDuplicate: "This alert already exists.",
+    customAlertsEmpty: "No custom alerts yet.",
+    customAlertsEyebrow: "Custom Alerts",
+    customAlertsHeading: "Custom Alerts",
+    customAlertsInvalid: "Enter a valid target value.",
+    customAlertsWaiting: "waiting",
     currentRegime: "Current Regime",
     dataUnavailable: "Data unavailable",
     dailyBriefCurrentRegime: "Current Regime",
@@ -102,6 +114,7 @@ const translations = {
     newsEyebrow: "Live Macro News",
     newsHeading: "Headlines Moving the Tape",
     newsUnavailable: "News unavailable",
+    newAlert: "+ New Alert",
     offlineSnapshot: "Offline snapshot",
     offlineSnapshotShown: "Offline snapshot shown. Reconnect to generate fresh analysis.",
     fallbackData: "Fallback data",
@@ -120,6 +133,10 @@ const translations = {
     researchMode: "Research mode",
     retryAfterRefresh: "Try again after the live data refresh completes.",
     retryAutomatically: "The dashboard will retry automatically.",
+    alertAsset: "Asset",
+    alertCondition: "Condition",
+    alertTarget: "Target value",
+    alertTriggered: "TRIGGERED",
     riskAppetite: "Risk appetite",
     riskAppetiteText: "Equities are firm, supported by earnings momentum and AI capital spending.",
     signal: "Signal",
@@ -145,6 +162,7 @@ const translations = {
     waitingMacroSignals: "Waiting for live macro signals.",
     waitingRiskSignals: "Waiting for risk signals",
     removeAsset: "Remove asset",
+    saveAlert: "Save Alert",
     searchAssets: "Search assets",
   },
   zh: {
@@ -167,6 +185,7 @@ const translations = {
     bullishFactors: "利好因素",
     cached: "缓存",
     calculating: "计算中...",
+    cancel: "取消",
     chartDataUnavailable: "图表数据不可用",
     chartsEyebrow: "交互图表",
     chartsHeading: "1日 / 1周资产走势",
@@ -177,6 +196,12 @@ const translations = {
     connecting: "连接中...",
     couldNotLoadAlerts: "无法加载宏观预警。",
     couldNotLoadTimeline: "无法加载历史简报。",
+    customAlertsDuplicate: "该提醒已存在。",
+    customAlertsEmpty: "还没有自定义提醒。",
+    customAlertsEyebrow: "自定义提醒",
+    customAlertsHeading: "自定义提醒",
+    customAlertsInvalid: "请输入有效的目标值。",
+    customAlertsWaiting: "等待中",
     currentRegime: "当前市场状态",
     dataUnavailable: "数据不可用",
     dailyBriefCurrentRegime: "当前市场状态",
@@ -226,6 +251,7 @@ const translations = {
     newsEyebrow: "实时宏观新闻",
     newsHeading: "影响市场的头条",
     newsUnavailable: "新闻不可用",
+    newAlert: "+ 新建提醒",
     offlineSnapshot: "离线快照",
     offlineSnapshotShown: "已显示离线快照。重新连接后可生成最新分析。",
     fallbackData: "备用数据",
@@ -244,6 +270,10 @@ const translations = {
     researchMode: "研究模式",
     retryAfterRefresh: "请等待实时数据刷新后重试。",
     retryAutomatically: "仪表盘将自动重试。",
+    alertAsset: "资产",
+    alertCondition: "条件",
+    alertTarget: "目标值",
+    alertTriggered: "已触发",
     riskAppetite: "风险偏好",
     riskAppetiteText: "股票表现稳健，受到盈利动能和 AI 资本开支支撑。",
     signal: "信号",
@@ -269,6 +299,7 @@ const translations = {
     waitingMacroSignals: "等待实时宏观信号。",
     waitingRiskSignals: "等待风险信号",
     removeAsset: "移除资产",
+    saveAlert: "保存提醒",
     searchAssets: "搜索资产",
   },
 };
@@ -276,6 +307,7 @@ const chartPeriods = {};
 let latestMarkets = [];
 let latestWatchlistQuotes = {};
 let watchlistAssetIds = readStoredWatchlist();
+let customAlerts = readStoredCustomAlerts();
 let currentLanguage = readStoredLanguage();
 
 async function configureNativeStatusBar() {
@@ -328,8 +360,50 @@ function saveWatchlist() {
   }
 }
 
+function readStoredCustomAlerts() {
+  try {
+    const supportedIds = new Set(CUSTOM_ALERT_ASSETS.map((asset) => asset.id));
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_ALERTS_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? parsed
+          .filter(
+            (alert) =>
+              alert &&
+              supportedIds.has(alert.assetId) &&
+              CUSTOM_ALERT_CONDITIONS.has(alert.condition) &&
+              Number.isFinite(Number(alert.target)),
+          )
+          .map((alert) => ({
+            id: alert.id || customAlertId(alert.assetId, alert.condition, alert.target),
+            assetId: alert.assetId,
+            condition: alert.condition,
+            target: Number(alert.target),
+            triggered: Boolean(alert.triggered),
+          }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomAlerts() {
+  try {
+    localStorage.setItem(CUSTOM_ALERTS_KEY, JSON.stringify(customAlerts));
+  } catch {
+    // Custom alerts are local-only; the dashboard should keep rendering without storage.
+  }
+}
+
 function watchlistAssetById(id) {
   return WATCHLIST_ASSETS.find((asset) => asset.id === id);
+}
+
+function customAlertAssetById(id) {
+  return CUSTOM_ALERT_ASSETS.find((asset) => asset.id === id);
+}
+
+function customAlertId(assetId, condition, target) {
+  return `${assetId}:${condition}:${Number(target)}`;
 }
 
 function setWatchlistPicker(open) {
@@ -350,6 +424,7 @@ function addWatchlistAsset(id) {
   saveWatchlist();
   renderWatchlist();
   renderWatchlistOptions();
+  renderCustomAlerts();
 }
 
 function removeWatchlistAsset(id) {
@@ -490,7 +565,7 @@ async function fetchJsonWithSnapshot(url, cacheKey, options = {}) {
 }
 
 function escapeHtml(value = "") {
-  return value.replace(/[&<>"']/g, (character) => {
+  return String(value).replace(/[&<>"']/g, (character) => {
     const entities = {
       "&": "&amp;",
       "<": "&lt;",
@@ -683,6 +758,41 @@ function watchlistQuote(asset) {
   };
 }
 
+function numericQuoteValue(value) {
+  const parsed = Number(String(value || "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function customAlertQuote(assetId) {
+  const asset = customAlertAssetById(assetId);
+  if (!asset) return null;
+  const quote = watchlistQuote(asset);
+  const numericValue = numericQuoteValue(quote.value);
+  if (!Number.isFinite(numericValue)) return null;
+  return { ...quote, numericValue };
+}
+
+function isCustomAlertTriggered(alert) {
+  const quote = customAlertQuote(alert.assetId);
+  if (!quote) return false;
+
+  if (alert.condition === ">") return quote.numericValue > alert.target;
+  if (alert.condition === "<") return quote.numericValue < alert.target;
+  if (alert.condition === ">=") return quote.numericValue >= alert.target;
+  if (alert.condition === "<=") return quote.numericValue <= alert.target;
+  return false;
+}
+
+function evaluateCustomAlerts() {
+  let changed = false;
+  customAlerts = customAlerts.map((alert) => {
+    if (alert.triggered || !isCustomAlertTriggered(alert)) return alert;
+    changed = true;
+    return { ...alert, triggered: true };
+  });
+  if (changed) saveCustomAlerts();
+}
+
 function renderWatchlist() {
   const grid = document.querySelector("#watchlistGrid");
   if (!grid) return;
@@ -716,6 +826,81 @@ function renderWatchlist() {
       `;
     })
     .join("");
+}
+
+function renderCustomAlerts() {
+  const grid = document.querySelector("#customAlertsGrid");
+  if (!grid) return;
+
+  evaluateCustomAlerts();
+
+  if (!customAlerts.length) {
+    grid.innerHTML = `
+      <article class="custom-alert-empty">
+        <strong>${t("customAlertsEmpty")}</strong>
+      </article>
+    `;
+    return;
+  }
+
+  grid.innerHTML = customAlerts
+    .map((alert) => {
+      const asset = customAlertAssetById(alert.assetId);
+      if (!asset) return "";
+      const quote = customAlertQuote(alert.assetId);
+      const status = alert.triggered ? t("alertTriggered") : t("customAlertsWaiting");
+      return `
+        <article class="custom-alert-card ${alert.triggered ? "triggered" : ""}">
+          <div>
+            <span>${escapeHtml(asset.name)}</span>
+            <strong>${escapeHtml(alert.assetId)} ${escapeHtml(alert.condition)} ${escapeHtml(alert.target)}</strong>
+            <p>${escapeHtml(quote?.value || "--")}</p>
+          </div>
+          <div class="custom-alert-status">${escapeHtml(status)}</div>
+          <button type="button" data-delete-custom-alert="${escapeHtml(alert.id)}" aria-label="Delete alert">×</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderCustomAlertAssetOptions() {
+  const select = document.querySelector("#customAlertAsset");
+  if (!select) return;
+  select.innerHTML = CUSTOM_ALERT_ASSETS.map(
+    (asset) => `<option value="${escapeHtml(asset.id)}">${escapeHtml(asset.name)}</option>`,
+  ).join("");
+}
+
+function setCustomAlertModal(open) {
+  const modal = document.querySelector("#customAlertModal");
+  const toggle = document.querySelector("#customAlertToggle");
+  if (!modal || !toggle) return;
+
+  modal.hidden = !open;
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  document.querySelector("#customAlertError").textContent = "";
+  if (open) {
+    renderCustomAlertAssetOptions();
+    document.querySelector("#customAlertAsset")?.focus();
+  }
+}
+
+function addCustomAlert({ assetId, condition, target }) {
+  const numericTarget = Number(target);
+  if (!customAlertAssetById(assetId) || !CUSTOM_ALERT_CONDITIONS.has(condition) || !Number.isFinite(numericTarget)) {
+    return { error: t("customAlertsInvalid") };
+  }
+
+  const id = customAlertId(assetId, condition, numericTarget);
+  if (customAlerts.some((alert) => alert.id === id)) {
+    return { error: t("customAlertsDuplicate") };
+  }
+
+  customAlerts = [...customAlerts, { id, assetId, condition, target: numericTarget, triggered: false }];
+  saveCustomAlerts();
+  renderCustomAlerts();
+  return { ok: true };
 }
 
 function renderWatchlistOptions() {
@@ -1069,6 +1254,7 @@ function renderAlerts(payload) {
 function renderLoading() {
   renderWatchlist();
   renderWatchlistOptions();
+  renderCustomAlerts();
 
   document.querySelector("#metricsGrid").innerHTML = Array.from({ length: 4 })
     .map(
@@ -1224,6 +1410,7 @@ async function refreshMarkets() {
     renderMetrics(payload.markets);
     renderCharts(payload.markets);
     renderWatchlist();
+    renderCustomAlerts();
     renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
     renderDailyBrief(payload);
@@ -1393,6 +1580,50 @@ document.querySelector("#watchlistGrid").addEventListener("click", (event) => {
   removeWatchlistAsset(removeButton.dataset.removeWatchlist);
 });
 
+document.querySelector("#customAlertToggle").addEventListener("click", () => {
+  setCustomAlertModal(true);
+});
+
+document.querySelector("#customAlertClose").addEventListener("click", () => {
+  setCustomAlertModal(false);
+});
+
+document.querySelector("#customAlertCancel").addEventListener("click", () => {
+  setCustomAlertModal(false);
+});
+
+document.querySelector("#customAlertModal").addEventListener("click", (event) => {
+  if (event.target.id === "customAlertModal") {
+    setCustomAlertModal(false);
+  }
+});
+
+document.querySelector("#customAlertForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const result = addCustomAlert({
+    assetId: document.querySelector("#customAlertAsset").value,
+    condition: document.querySelector("#customAlertCondition").value,
+    target: document.querySelector("#customAlertTarget").value,
+  });
+
+  if (result.error) {
+    document.querySelector("#customAlertError").textContent = result.error;
+    return;
+  }
+
+  document.querySelector("#customAlertForm").reset();
+  setCustomAlertModal(false);
+});
+
+document.querySelector("#customAlertsGrid").addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-delete-custom-alert]");
+  if (!deleteButton) return;
+
+  customAlerts = customAlerts.filter((alert) => alert.id !== deleteButton.dataset.deleteCustomAlert);
+  saveCustomAlerts();
+  renderCustomAlerts();
+});
+
 document.querySelector("#languageMenuButton").addEventListener("click", (event) => {
   event.stopPropagation();
   toggleLanguageDropdown();
@@ -1416,6 +1647,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeLanguageDropdown();
+    setCustomAlertModal(false);
     document.querySelector("#languageMenuButton").focus();
   }
 });

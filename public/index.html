@@ -262,6 +262,23 @@
         </div>
       </section>
 
+      <section class="custom-alerts-panel" aria-labelledby="customAlertsHeading">
+        <div class="section-heading custom-alerts-heading">
+          <div>
+            <p class="eyebrow" data-i18n="customAlertsEyebrow">Custom Alerts</p>
+            <h2 id="customAlertsHeading" data-i18n="customAlertsHeading">Custom Alerts</h2>
+          </div>
+          <button class="secondary-button" id="customAlertToggle" type="button" data-i18n="newAlert" aria-expanded="false">
+            + New Alert
+          </button>
+        </div>
+        <div class="custom-alerts-grid" id="customAlertsGrid">
+          <article class="custom-alert-empty">
+            <strong data-i18n="customAlertsEmpty">No custom alerts yet.</strong>
+          </article>
+        </div>
+      </section>
+
       <section class="brief-panel" aria-labelledby="briefHeading">
         <div class="section-heading brief-heading">
           <div>
@@ -318,6 +335,42 @@
         <div class="topic-strip" id="topicStrip"></div>
         <div class="news-list" id="newsList"></div>
       </section>
+
+      <div class="modal-backdrop" id="customAlertModal" hidden>
+        <div class="custom-alert-modal" role="dialog" aria-modal="true" aria-labelledby="customAlertModalHeading">
+          <div class="section-heading custom-alert-modal-heading">
+            <div>
+              <p class="eyebrow" data-i18n="customAlertsEyebrow">Custom Alerts</p>
+              <h2 id="customAlertModalHeading" data-i18n="newAlert">+ New Alert</h2>
+            </div>
+            <button class="modal-close" id="customAlertClose" type="button" aria-label="Close">×</button>
+          </div>
+          <form class="custom-alert-form" id="customAlertForm">
+            <label>
+              <span data-i18n="alertAsset">Asset</span>
+              <select id="customAlertAsset" name="asset"></select>
+            </label>
+            <label>
+              <span data-i18n="alertCondition">Condition</span>
+              <select id="customAlertCondition" name="condition">
+                <option value=">">&gt;</option>
+                <option value="<">&lt;</option>
+                <option value=">=">&gt;=</option>
+                <option value="<=">&lt;=</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="alertTarget">Target value</span>
+              <input id="customAlertTarget" name="target" type="number" step="any" placeholder="3500" required />
+            </label>
+            <p class="custom-alert-error" id="customAlertError" role="alert"></p>
+            <div class="modal-actions">
+              <button class="secondary-button" id="customAlertCancel" type="button" data-i18n="cancel">Cancel</button>
+              <button class="primary-button" type="submit" data-i18n="saveAlert">Save Alert</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </main>
 
     <script src="script.js"></script>
