@@ -44,6 +44,7 @@ const WATCHLIST_YAHOO_SYMBOLS = {
   USDJPY: { symbol: "JPY=X", label: "USD/JPY", formatter: "fx2" },
   WTI: { symbol: "CL=F", label: "WTI Crude", formatter: "currency" },
 };
+const FORECAST_ASSETS = ["Gold", "SPX", "DXY", "US10Y", "BTC", "ETH", "WTI"];
 const TREASURY_URL = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${new Date().getFullYear()}`;
 const NEWS_TOPICS = [
   "Federal Reserve",
@@ -987,6 +988,291 @@ async function generateOpenAiAnalysis(question, context) {
     return normalizeAnalystResponse(question, generated, context, "openai");
   } catch (error) {
     console.error(`OpenAI analyst fallback: ${error.message}`);
+    return null;
+  }
+}
+
+function forecastQuote(marketsPayload, assetId) {
+  const markets = marketsPayload.markets || [];
+  const byMarketId = {
+    Gold: "gold",
+    SPX: "spx",
+    DXY: "dxy",
+    US10Y: "tenYear",
+  };
+  const marketId = byMarketId[assetId];
+  if (marketId) {
+    const market = marketById(markets, marketId);
+    if (market) {
+      return {
+        asset: assetId,
+        name: market.label,
+        value: market.value,
+        change: market.change,
+        rawChange: market.rawChange,
+        trend: market.trend || [],
+      };
+    }
+  }
+
+  const quote = marketsPayload.watchlistQuotes?.[assetId];
+  if (quote && !quote.unavailable) {
+    return {
+      asset: assetId,
+      name: quote.name,
+      value: quote.value,
+      change: quote.change,
+      rawChange: Number.isFinite(quote.rawChange) ? quote.rawChange : 0,
+      trend: [],
+    };
+  }
+
+  return {
+    asset: assetId,
+    name: assetId,
+    value: "--",
+    change: "--",
+    rawChange: 0,
+    trend: [],
+  };
+}
+
+function buildForecastContext(marketsPayload, newsPayload, dailyBriefPayload, alertsPayload) {
+  const headlineTopics = [
+    ...new Set((newsPayload.headlines || []).flatMap((headline) => headline.topics || [])),
+  ].slice(0, 6);
+
+  return {
+    updatedAt: new Date().toISOString(),
+    regime: marketsPayload.regime,
+    assets: FORECAST_ASSETS.map((assetId) => forecastQuote(marketsPayload, assetId)),
+    dailyBrief: dailyBriefPayload
+      ? {
+          marketTheme: dailyBriefPayload.marketTheme,
+          mainRisks: dailyBriefPayload.mainRisks || [],
+          keyDrivers: dailyBriefPayload.keyDrivers || [],
+          watchingNext: dailyBriefPayload.watchingNext || [],
+          summaryLine: dailyBriefPayload.summaryLine,
+        }
+      : marketsPayload.aiDailyBrief,
+    alerts: (alertsPayload.history || []).slice(0, 6).map((alert) => ({
+      title: alert.title,
+      explanation: alert.explanation,
+      severity: alert.severity,
+      type: alert.type,
+    })),
+    headlines: (newsPayload.headlines || []).slice(0, 6).map((headline) => ({
+      title: headline.title,
+      source: headline.source,
+      topics: headline.topics,
+    })),
+    headlineTopics,
+  };
+}
+
+function normalizeForecastItems(items, context, provider) {
+  const outlooks = new Set(["Bullish", "Neutral", "Bearish"]);
+  const fallbackItems = generateLocalForecast(context).items;
+  const fallbackByAsset = Object.fromEntries(fallbackItems.map((item) => [item.asset, item]));
+  const list = (values, fallback) =>
+    (Array.isArray(values) ? values : fallback)
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .slice(0, 5);
+
+  return {
+    updatedAt: new Date().toISOString(),
+    provider,
+    items: FORECAST_ASSETS.map((assetId) => {
+      const generated = (Array.isArray(items) ? items : []).find((item) => item.asset === assetId) || {};
+      const fallback = fallbackByAsset[assetId];
+      return {
+        asset: assetId,
+        outlook: outlooks.has(generated.outlook) ? generated.outlook : fallback.outlook,
+        confidence: clamp(Math.round(Number(generated.confidence) || fallback.confidence), 0, 100),
+        bullishScenario:
+          typeof generated.bullishScenario === "string" && generated.bullishScenario.trim()
+            ? generated.bullishScenario.trim()
+            : fallback.bullishScenario,
+        bearishScenario:
+          typeof generated.bearishScenario === "string" && generated.bearishScenario.trim()
+            ? generated.bearishScenario.trim()
+            : fallback.bearishScenario,
+        keyTriggers: list(generated.keyTriggers, fallback.keyTriggers),
+        invalidatingSignals: list(generated.invalidatingSignals, fallback.invalidatingSignals),
+      };
+    }),
+  };
+}
+
+function localForecastOutlook(asset, context) {
+  const regime = context.regime?.label || "Neutral";
+  const move = Number(asset.rawChange) || 0;
+  if (asset.asset === "US10Y") {
+    if (move > 0.03 || regime === "Rate Shock") return "Bullish";
+    if (move < -0.03) return "Bearish";
+    return "Neutral";
+  }
+  if (asset.asset === "DXY") {
+    if (move > 0.15 || regime === "Rate Shock") return "Bullish";
+    if (move < -0.15) return "Bearish";
+    return "Neutral";
+  }
+  if (asset.asset === "Gold") {
+    if (move > 0.25 || ["Defensive Positioning", "Inflation Fear", "Risk Off"].includes(regime)) return "Bullish";
+    if (move < -0.25 && ["Risk On", "Growth Optimism"].includes(regime)) return "Bearish";
+    return "Neutral";
+  }
+  if (move > 0.35 && ["Risk On", "Growth Optimism"].includes(regime)) return "Bullish";
+  if (move < -0.35 || ["Risk Off", "Rate Shock"].includes(regime)) return "Bearish";
+  return "Neutral";
+}
+
+function generateLocalForecast(context) {
+  return {
+    updatedAt: new Date().toISOString(),
+    provider: "local",
+    items: context.assets.map((asset) => {
+      const outlook = localForecastOutlook(asset, context);
+      const confidence = clamp(Math.round((context.regime?.confidence || 62) - (outlook === "Neutral" ? 14 : 6)), 42, 86);
+      const regimeLabel = context.regime?.label || "Neutral";
+      return {
+        asset: asset.asset,
+        outlook,
+        confidence,
+        bullishScenario: `${asset.name} would screen more constructively if the current ${regimeLabel} backdrop is confirmed by follow-through in recent trend, calmer alerts, and supportive headline flow. This is a research scenario, not a price forecast.`,
+        bearishScenario: `${asset.name} would screen more cautiously if the dollar, rates, or risk sentiment move against the current setup and headlines reinforce macro stress rather than stabilization.`,
+        keyTriggers: [
+          `${asset.name} trend confirmation versus the latest ${asset.change} move`,
+          `Regime engine staying in or shifting away from ${regimeLabel}`,
+          "Dollar and Treasury-yield confirmation across the next refresh cycle",
+          "Macro headlines aligning with the daily brief risk summary",
+        ],
+        invalidatingSignals: [
+          "A regime shift that contradicts the current cross-asset read",
+          "Alerts firing in the opposite direction of the outlook",
+          "A reversal in dollar, yields, or equity risk appetite",
+        ],
+      };
+    }),
+  };
+}
+
+function buildOpenAiForecastPayload(context) {
+  return {
+    model: OPENAI_MODEL,
+    input: [
+      {
+        role: "system",
+        content:
+          "You are a senior institutional macro research analyst writing for a professional markets dashboard. Style: Bloomberg, Goldman Sachs, and Bridgewater. Return JSON only. Educational market research only. Never give investment advice, never say buy or sell, and never predict exact prices.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          task:
+            "Generate a market outlook for each supported asset using current market data, regime, alerts, daily brief, headlines, and recent trend. Use scenario language rather than price targets.",
+          assets: FORECAST_ASSETS,
+          requiredFields: [
+            "asset",
+            "outlook",
+            "confidence",
+            "bullishScenario",
+            "bearishScenario",
+            "keyTriggers",
+            "invalidatingSignals",
+          ],
+          context,
+        }),
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "market_outlook_response",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["items"],
+          properties: {
+            items: {
+              type: "array",
+              minItems: 7,
+              maxItems: 7,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: [
+                  "asset",
+                  "outlook",
+                  "confidence",
+                  "bullishScenario",
+                  "bearishScenario",
+                  "keyTriggers",
+                  "invalidatingSignals",
+                ],
+                properties: {
+                  asset: { type: "string", enum: FORECAST_ASSETS },
+                  outlook: { type: "string", enum: ["Bullish", "Neutral", "Bearish"] },
+                  confidence: { type: "integer", minimum: 0, maximum: 100 },
+                  bullishScenario: { type: "string" },
+                  bearishScenario: { type: "string" },
+                  keyTriggers: {
+                    type: "array",
+                    minItems: 2,
+                    maxItems: 5,
+                    items: { type: "string" },
+                  },
+                  invalidatingSignals: {
+                    type: "array",
+                    minItems: 2,
+                    maxItems: 5,
+                    items: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    max_output_tokens: 2200,
+  };
+}
+
+async function generateOpenAiForecast(context) {
+  if (
+    !process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_API_KEY === "your-openai-api-key" ||
+    process.env.OPENAI_API_KEY === "sk-your-api-key" ||
+    openAiDisabled
+  ) {
+    return null;
+  }
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildOpenAiForecastPayload(context)),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        openAiDisabled = true;
+      }
+      throw new Error(`OpenAI returned ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const generated = parseSummaryJson(extractResponseText(payload));
+    return normalizeForecastItems(generated.items, context, "openai");
+  } catch (error) {
+    console.error(`OpenAI forecast fallback: ${error.message}`);
     return null;
   }
 }
@@ -2151,6 +2437,25 @@ async function analyzeMacroQuestion(body = {}) {
   return openAiAnalysis || generateLocalAnalysis(question, context);
 }
 
+async function fetchMarketOutlook() {
+  const marketsPayload = await fetchMarketsSafe();
+  const [newsResult, briefResult, alertsResult] = await Promise.allSettled([
+    fetchMacroNews(),
+    fetchDailyBrief(),
+    fetchMacroAlerts(),
+  ]);
+  const newsPayload =
+    newsResult.status === "fulfilled" ? newsResult.value : buildFallbackNews(newsResult.reason?.message);
+  const dailyBriefPayload = briefResult.status === "fulfilled" ? briefResult.value : null;
+  const alertsPayload =
+    alertsResult.status === "fulfilled"
+      ? alertsResult.value
+      : { updatedAt: new Date().toISOString(), active: [], history: [], count: 0 };
+  const context = buildForecastContext(marketsPayload, newsPayload, dailyBriefPayload, alertsPayload);
+  const openAiForecast = await generateOpenAiForecast(context);
+  return openAiForecast || generateLocalForecast(context);
+}
+
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
@@ -2249,6 +2554,11 @@ async function handleRequest(request, response) {
     return;
   }
 
+  if (pathname === "/api/forecast") {
+    await sendApiPayload(response, fetchMarketOutlook);
+    return;
+  }
+
   if (pathname === "/api/analyze") {
     if (request.method !== "POST") {
       sendJson(response, 405, { error: "Method not allowed" });
@@ -2279,5 +2589,6 @@ module.exports.api = {
   fetchDailyBrief,
   fetchTimeline,
   fetchMacroAlerts,
+  fetchMarketOutlook,
   analyzeMacroQuestion,
 };

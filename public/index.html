@@ -115,6 +115,49 @@
         </div>
       </section>
 
+      <section class="forecast-panel" aria-labelledby="forecastHeading">
+        <div class="section-heading forecast-heading">
+          <div>
+            <p class="eyebrow" data-i18n="forecastEyebrow">Market Outlook</p>
+            <h2 id="forecastHeading" data-i18n="forecastHeading">Forecast Engine</h2>
+          </div>
+          <span class="tag" id="forecastProvider">Loading</span>
+        </div>
+        <div class="forecast-grid" id="forecastGrid">
+          <article class="forecast-empty loading-card">
+            <strong data-i18n="forecastLoading">Generating market outlook...</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="watchlist-panel" aria-labelledby="watchlistHeading">
+        <div class="section-heading watchlist-heading">
+          <div>
+            <p class="eyebrow" data-i18n="watchlistEyebrow">Watchlist</p>
+            <h2 id="watchlistHeading" data-i18n="watchlistHeading">Favorite Assets</h2>
+          </div>
+          <button class="secondary-button" id="watchlistToggle" type="button" data-i18n="addAsset" aria-expanded="false">
+            + Add Asset
+          </button>
+        </div>
+        <div class="watchlist-picker" id="watchlistPicker" hidden>
+          <label class="sr-only" for="watchlistSearch" data-i18n="searchAssets">Search assets</label>
+          <input
+            id="watchlistSearch"
+            type="search"
+            data-i18n-placeholder="searchAssets"
+            placeholder="Search assets"
+            autocomplete="off"
+          />
+          <div class="watchlist-options" id="watchlistOptions" role="listbox"></div>
+        </div>
+        <div class="watchlist-grid" id="watchlistGrid">
+          <article class="watchlist-empty">
+            <strong data-i18n="watchlistEmpty">No favorite assets yet.</strong>
+          </article>
+        </div>
+      </section>
+
       <section class="daily-brief-panel" aria-labelledby="dailyBriefHeading">
         <div class="section-heading daily-brief-heading">
           <div>
@@ -143,6 +186,23 @@
           <article class="daily-brief-card">
             <span class="result-kicker" data-i18n="dailyBriefRiskSummary">Risk Summary</span>
             <p id="dailyBriefRisk">Waiting for live macro signals.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="custom-alerts-panel" aria-labelledby="customAlertsHeading">
+        <div class="section-heading custom-alerts-heading">
+          <div>
+            <p class="eyebrow" data-i18n="customAlertsEyebrow">Custom Alerts</p>
+            <h2 id="customAlertsHeading" data-i18n="customAlertsHeading">Custom Alerts</h2>
+          </div>
+          <button class="secondary-button" id="customAlertToggle" type="button" data-i18n="newAlert" aria-expanded="false">
+            + New Alert
+          </button>
+        </div>
+        <div class="custom-alerts-grid" id="customAlertsGrid">
+          <article class="custom-alert-empty">
+            <strong data-i18n="customAlertsEmpty">No custom alerts yet.</strong>
           </article>
         </div>
       </section>
@@ -232,83 +292,6 @@
             </div>
           </div>
         </aside>
-      </section>
-
-      <section class="watchlist-panel" aria-labelledby="watchlistHeading">
-        <div class="section-heading watchlist-heading">
-          <div>
-            <p class="eyebrow" data-i18n="watchlistEyebrow">Watchlist</p>
-            <h2 id="watchlistHeading" data-i18n="watchlistHeading">Favorite Assets</h2>
-          </div>
-          <button class="secondary-button" id="watchlistToggle" type="button" data-i18n="addAsset" aria-expanded="false">
-            + Add Asset
-          </button>
-        </div>
-        <div class="watchlist-picker" id="watchlistPicker" hidden>
-          <label class="sr-only" for="watchlistSearch" data-i18n="searchAssets">Search assets</label>
-          <input
-            id="watchlistSearch"
-            type="search"
-            data-i18n-placeholder="searchAssets"
-            placeholder="Search assets"
-            autocomplete="off"
-          />
-          <div class="watchlist-options" id="watchlistOptions" role="listbox"></div>
-        </div>
-        <div class="watchlist-grid" id="watchlistGrid">
-          <article class="watchlist-empty">
-            <strong data-i18n="watchlistEmpty">No favorite assets yet.</strong>
-          </article>
-        </div>
-      </section>
-
-      <section class="custom-alerts-panel" aria-labelledby="customAlertsHeading">
-        <div class="section-heading custom-alerts-heading">
-          <div>
-            <p class="eyebrow" data-i18n="customAlertsEyebrow">Custom Alerts</p>
-            <h2 id="customAlertsHeading" data-i18n="customAlertsHeading">Custom Alerts</h2>
-          </div>
-          <button class="secondary-button" id="customAlertToggle" type="button" data-i18n="newAlert" aria-expanded="false">
-            + New Alert
-          </button>
-        </div>
-        <div class="custom-alerts-grid" id="customAlertsGrid">
-          <article class="custom-alert-empty">
-            <strong data-i18n="customAlertsEmpty">No custom alerts yet.</strong>
-          </article>
-        </div>
-      </section>
-
-      <section class="brief-panel" aria-labelledby="briefHeading">
-        <div class="section-heading brief-heading">
-          <div>
-            <p class="eyebrow" data-i18n="briefEyebrow">Daily Macro Brief</p>
-            <h2 id="briefHeading" data-i18n="briefHeading">Today’s Market Briefing</h2>
-          </div>
-          <span class="tag" id="briefStatus">Loading</span>
-        </div>
-        <div class="brief-theme">
-          <span id="briefRegime">--</span>
-          <p id="briefTheme">Generating today’s market theme...</p>
-        </div>
-        <div class="brief-grid">
-          <article class="brief-block">
-            <h3 data-i18n="mainRisks">Main Risks</h3>
-            <ul id="briefRisks"></ul>
-          </article>
-          <article class="brief-block">
-            <h3 data-i18n="keyDrivers">Key Drivers</h3>
-            <ul id="briefDrivers"></ul>
-          </article>
-          <article class="brief-block">
-            <h3 data-i18n="watchingNext">Watching Next</h3>
-            <ul id="briefWatching"></ul>
-          </article>
-        </div>
-        <div class="brief-interpretation">
-          <strong data-i18n="actionableInterpretation">Actionable Interpretation</strong>
-          <p id="briefInterpretation">Waiting for live macro data.</p>
-        </div>
       </section>
 
       <section class="timeline-panel" aria-labelledby="timelineHeading">

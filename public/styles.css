@@ -661,6 +661,125 @@ h2 {
   align-items: center;
 }
 
+.forecast-panel {
+  margin: 0 0 16px;
+  border: 1px solid rgba(103, 167, 255, 0.32);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(103, 167, 255, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(20, 30, 44, 0.96), rgba(13, 19, 29, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+  padding: 20px;
+}
+
+.forecast-heading {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.forecast-card,
+.forecast-empty {
+  min-width: 0;
+  border: 1px solid rgba(143, 160, 181, 0.17);
+  border-radius: 8px;
+  background: rgba(5, 10, 17, 0.34);
+  padding: 14px;
+}
+
+.forecast-card.bullish {
+  border-color: rgba(97, 229, 172, 0.34);
+}
+
+.forecast-card.bearish {
+  border-color: rgba(255, 111, 125, 0.32);
+}
+
+.forecast-top,
+.forecast-scenarios,
+.forecast-lists {
+  display: grid;
+  gap: 12px;
+}
+
+.forecast-top {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.forecast-top strong {
+  color: var(--text);
+  font-size: 1.28rem;
+  line-height: 1.05;
+}
+
+.forecast-card.bullish .forecast-top strong {
+  color: var(--green);
+}
+
+.forecast-card.bearish .forecast-top strong {
+  color: var(--red);
+}
+
+.forecast-confidence {
+  text-align: right;
+}
+
+.forecast-confidence span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.forecast-confidence strong {
+  color: var(--gold);
+  font-size: 1.25rem;
+}
+
+.forecast-scenarios,
+.forecast-lists {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.forecast-card h3 {
+  margin: 0 0 7px;
+  color: var(--text);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.forecast-card p,
+.forecast-card li,
+.forecast-empty p {
+  color: #c8d3e4;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.forecast-card ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 17px;
+}
+
+.forecast-empty {
+  grid-column: 1 / -1;
+  min-height: 80px;
+  display: grid;
+  align-items: center;
+  color: var(--muted);
+}
+
 .custom-alerts-panel {
   margin: 0 0 16px;
   border: 1px solid rgba(245, 180, 85, 0.26);
@@ -1707,6 +1826,7 @@ h2 {
 
 @media (max-width: 980px) {
   .metrics-grid,
+  .forecast-grid,
   .watchlist-grid,
   .watchlist-options,
   .custom-alerts-grid,
@@ -1808,6 +1928,7 @@ h2 {
   }
 
   .analyst-panel,
+  .forecast-panel,
   .watchlist-panel,
   .custom-alerts-panel,
   .daily-brief-panel,
@@ -1823,6 +1944,7 @@ h2 {
   }
 
   .analyst-panel,
+  .forecast-panel,
   .watchlist-panel,
   .custom-alerts-panel,
   .daily-brief-panel,
@@ -1837,6 +1959,7 @@ h2 {
   }
 
   .analyst-heading,
+  .forecast-heading,
   .watchlist-heading,
   .custom-alerts-heading,
   .daily-brief-heading,
@@ -1881,6 +2004,8 @@ h2 {
   }
 
   .result-section ul,
+  .forecast-card p,
+  .forecast-card li,
   .daily-brief-card p,
   .daily-brief-card li,
   .signals-card ul,
@@ -1935,6 +2060,9 @@ h2 {
   }
 
   .metrics-grid,
+  .forecast-grid,
+  .forecast-scenarios,
+  .forecast-lists,
   .watchlist-grid,
   .watchlist-options,
   .custom-alerts-grid,
@@ -2017,6 +2145,7 @@ h2 {
   }
 
   .analyst-panel,
+  .forecast-panel,
   .watchlist-panel,
   .custom-alerts-panel,
   .daily-brief-panel,

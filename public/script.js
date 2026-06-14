@@ -82,6 +82,15 @@ const translations = {
     englishName: "English",
     feedRetry: "The feed will retry automatically.",
     fetchingNews: "Fetching live news feed",
+    forecastBearishScenario: "Bearish Scenario",
+    forecastBullishScenario: "Bullish Scenario",
+    forecastCouldNotLoad: "Market outlook unavailable.",
+    forecastEyebrow: "Market Outlook",
+    forecastHeading: "Forecast Engine",
+    forecastInvalidatingSignals: "Invalidating Signals",
+    forecastKeyTriggers: "Key Triggers",
+    forecastLoading: "Generating market outlook...",
+    forecastOutlook: "Outlook",
     generated: "Generated",
     generateAnalysis: "Generate Analysis",
     generating: "Generating",
@@ -221,6 +230,15 @@ const translations = {
     englishName: "English",
     feedRetry: "新闻流将自动重试。",
     fetchingNews: "正在获取实时新闻",
+    forecastBearishScenario: "利空情景",
+    forecastBullishScenario: "利好情景",
+    forecastCouldNotLoad: "市场展望不可用。",
+    forecastEyebrow: "市场展望",
+    forecastHeading: "预测引擎",
+    forecastInvalidatingSignals: "失效信号",
+    forecastKeyTriggers: "关键触发因素",
+    forecastLoading: "正在生成市场展望...",
+    forecastOutlook: "展望",
     generated: "已生成",
     generateAnalysis: "生成分析",
     generating: "生成中",
@@ -1015,6 +1033,62 @@ function renderDailyBrief(payload) {
     payload.summary || regime?.explanation || t("waitingMacroSignals");
 }
 
+function forecastList(items = []) {
+  return items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+}
+
+function renderForecast(payload) {
+  const provider = payload.provider === "openai" ? "OpenAI" : t("localModel");
+  document.querySelector("#forecastProvider").textContent = provider;
+  document.querySelector("#forecastGrid").innerHTML = (payload.items || [])
+    .map(
+      (item) => `
+        <article class="forecast-card ${escapeHtml(item.outlook).toLowerCase()}">
+          <div class="forecast-top">
+            <div>
+              <span class="result-kicker">${escapeHtml(item.asset)}</span>
+              <strong>${escapeHtml(item.outlook)}</strong>
+            </div>
+            <div class="forecast-confidence">
+              <span>${t("confidence")}</span>
+              <strong>${Number(item.confidence)}%</strong>
+            </div>
+          </div>
+          <div class="forecast-scenarios">
+            <div>
+              <h3>${t("forecastBullishScenario")}</h3>
+              <p>${escapeHtml(item.bullishScenario)}</p>
+            </div>
+            <div>
+              <h3>${t("forecastBearishScenario")}</h3>
+              <p>${escapeHtml(item.bearishScenario)}</p>
+            </div>
+          </div>
+          <div class="forecast-lists">
+            <div>
+              <h3>${t("forecastKeyTriggers")}</h3>
+              <ul>${forecastList(item.keyTriggers)}</ul>
+            </div>
+            <div>
+              <h3>${t("forecastInvalidatingSignals")}</h3>
+              <ul>${forecastList(item.invalidatingSignals)}</ul>
+            </div>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderForecastLoading() {
+  document.querySelector("#forecastProvider").textContent = t("loading");
+  document.querySelector("#forecastGrid").innerHTML = `
+    <article class="forecast-empty loading-card">
+      <strong>${t("forecastLoading")}</strong>
+    </article>
+  `;
+}
+
 function renderRegime(regime) {
   if (!regime) return;
 
@@ -1252,6 +1326,7 @@ function renderAlerts(payload) {
 }
 
 function renderLoading() {
+  renderForecastLoading();
   renderWatchlist();
   renderWatchlistOptions();
   renderCustomAlerts();
@@ -1426,6 +1501,25 @@ async function refreshMarkets() {
       document.querySelector("#marketSummary").textContent =
         t("marketDataUnavailable");
     }
+    console.error(error);
+  }
+}
+
+async function refreshForecast() {
+  try {
+    const { payload, fromCache } = await fetchJsonWithSnapshot("/api/forecast", "forecast");
+    renderForecast(payload);
+    if (fromCache) {
+      document.querySelector("#forecastProvider").textContent = t("offlineSnapshot");
+    }
+  } catch (error) {
+    document.querySelector("#forecastProvider").textContent = t("unavailable");
+    document.querySelector("#forecastGrid").innerHTML = `
+      <article class="forecast-empty">
+        <strong>${t("forecastCouldNotLoad")}</strong>
+        <p>${t("retryAutomatically")}</p>
+      </article>
+    `;
     console.error(error);
   }
 }
@@ -1665,10 +1759,12 @@ applyLanguage();
 renderLoading();
 renderNewsLoading();
 refreshMarkets();
+refreshForecast();
 refreshNews();
 refreshBrief();
 refreshAlerts();
 setInterval(refreshMarkets, REFRESH_MS);
+setInterval(refreshForecast, BRIEF_REFRESH_MS);
 setInterval(refreshNews, NEWS_REFRESH_MS);
 setInterval(refreshBrief, BRIEF_REFRESH_MS);
 setInterval(refreshTimeline, BRIEF_REFRESH_MS);
