@@ -574,6 +574,17 @@ function setAccountMessage(message, isError = false, isRawMessage = false) {
   messageElement.classList.toggle("error", isError);
 }
 
+function clearAccountMessage() {
+  accountMessageKey = "";
+  accountMessageText = "";
+  accountMessageIsError = false;
+  const messageElement = document.querySelector("#accountMessage");
+  if (!messageElement) return;
+
+  messageElement.textContent = "";
+  messageElement.classList.remove("error");
+}
+
 function getAuthErrorMessage(error) {
   return error?.message || window.MacroRadarAuth?.getLastError?.() || t("authFailed");
 }
@@ -596,8 +607,9 @@ function renderAccount(user = null) {
 
 async function initializeAccount() {
   renderAccount(null);
+  clearAccountMessage();
   if (!window.MacroRadarAuth) {
-    setAccountMessage("authFailed", true);
+    console.error("Account initialization failed", new Error("Auth helper unavailable"));
     return;
   }
 
@@ -605,15 +617,11 @@ async function initializeAccount() {
     setAccountLoading(true);
     const user = await window.MacroRadarAuth.getCurrentUser();
     renderAccount(user);
-    if (!user && window.MacroRadarAuth.getLastError?.()) {
-      setAccountMessage(window.MacroRadarAuth.getLastError(), true, true);
-    }
     await window.MacroRadarAuth.onAuthStateChange((nextUser) => {
       renderAccount(nextUser);
     });
   } catch (error) {
     console.error("Account initialization failed", error);
-    setAccountMessage(getAuthErrorMessage(error), true, true);
     renderAccount(null);
   }
 }
@@ -1808,6 +1816,9 @@ addSafeListener("#accountForm", "submit", (event) => {
   }
   handleAccountAction("signin");
 });
+
+addSafeListener("#accountEmail", "input", clearAccountMessage);
+addSafeListener("#accountPassword", "input", clearAccountMessage);
 
 addSafeListener("#accountSignUp", "click", () => {
   if (!window.MacroRadarAuth) {

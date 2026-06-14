@@ -97,10 +97,22 @@
   async function getCurrentUser() {
     try {
       const supabase = await initSupabase();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) {
+        lastError = "";
+        return null;
+      }
+
       const { data, error } = await supabase.auth.getUser();
       if (error) throw error;
+      lastError = "";
       return data.user || null;
     } catch (error) {
+      if (error.message === "Auth session missing!") {
+        lastError = "";
+        return null;
+      }
       lastError = error.message || "Authentication unavailable";
       return null;
     }
