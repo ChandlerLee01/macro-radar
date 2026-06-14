@@ -816,6 +816,13 @@ function setPushMessage(key, isError = false) {
   message.classList.toggle("error", isError);
 }
 
+function setPushRawMessage(text, isError = false) {
+  const message = document.querySelector("#pushMessage");
+  if (!message) return;
+  message.textContent = text || "";
+  message.classList.toggle("error", isError);
+}
+
 function renderPushSettings() {
   const state = document.querySelector("#pushState");
   const button = document.querySelector("#pushEnable");
@@ -836,7 +843,10 @@ function loadOneSignalSdk() {
     script.src = ONESIGNAL_SDK_URL;
     script.defer = true;
     script.async = true;
-    script.onload = () => resolve();
+    script.onload = () => {
+      console.log("OneSignal SDK script loaded");
+      resolve();
+    };
     script.onerror = () => reject(new Error("OneSignal SDK unavailable"));
     document.head.appendChild(script);
   });
@@ -844,11 +854,40 @@ function loadOneSignalSdk() {
 }
 
 async function loadOneSignalConfig() {
-  const response = await fetch("/api/onesignal-config", { cache: "no-store" });
+  const response = await fetch("/api/push-config", { cache: "no-store" });
   const config = await response.json();
   if (!response.ok) throw new Error(config.error || "OneSignal config unavailable");
-  if (!config.configured || !config.appId) throw new Error("OneSignal is not configured");
-  return config;
+  const appId = config.oneSignalAppId || config.appId || "";
+  console.log("OneSignal App ID exists?", Boolean(appId));
+  console.log("OneSignal App ID prefix:", appId ? appId.slice(0, 8) : "");
+  if (!config.configured || !appId) throw new Error("OneSignal is not configured");
+  return { ...config, appId };
+}
+
+function logOneSignalDiagnostics(config = {}) {
+  console.log("OneSignal App ID exists?", Boolean(config.appId));
+  console.log(
+    "current Notification.permission:",
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+  );
+  console.log("window.OneSignal exists?", Boolean(window.OneSignal));
+  console.log("serviceWorker is supported?", Boolean(navigator.serviceWorker));
+}
+
+async function verifyOneSignalWorkers() {
+  const workerPaths = ["/OneSignalSDKWorker.js", "/OneSignalSDKUpdaterWorker.js"];
+  await Promise.all(
+    workerPaths.map(async (path) => {
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+    }),
+  );
+}
+
+function pushErrorMessage(error) {
+  if (error?.message) return error.message;
+  if (typeof Notification !== "undefined" && Notification.permission === "denied") return t("permissionDenied");
+  return t("pushSetupFailed");
 }
 
 function runOneSignal(callback) {
@@ -874,12 +913,19 @@ async function persistPushEnabled(value) {
 }
 
 async function enablePushNotifications() {
+  let config = {};
   try {
     const button = document.querySelector("#pushEnable");
     if (button) button.disabled = true;
     setPushMessage("");
-    const config = await loadOneSignalConfig();
+    config = await loadOneSignalConfig();
+    logOneSignalDiagnostics(config);
+    if (!navigator.serviceWorker) {
+      throw new Error("Service workers are not supported in this browser");
+    }
+    await verifyOneSignalWorkers();
     await loadOneSignalSdk();
+    console.log("window.OneSignal exists after SDK load?", Boolean(window.OneSignal));
     await runOneSignal(async (OneSignal) => {
       await OneSignal.init({
         appId: config.appId,
@@ -900,13 +946,14 @@ async function enablePushNotifications() {
     renderPushSettings();
     setPushMessage("pushEnabled");
   } catch (error) {
-    console.error("Push setup failed", error);
+    console.error("OneSignal push setup error:", error);
+    logOneSignalDiagnostics(config);
     const denied =
       error.message === "Permission denied" ||
       (typeof Notification !== "undefined" && Notification.permission === "denied");
     pushEnabled = false;
     renderPushSettings();
-    setPushMessage(denied ? "permissionDenied" : "pushSetupFailed", true);
+    setPushRawMessage(denied ? t("permissionDenied") : pushErrorMessage(error), true);
   }
 }
 
@@ -2311,9 +2358,39 @@ document.addEventListener("keydown", (event) => {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((error) => {
-      console.error("Service worker registration failed", error);
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
     });
+
+    navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .then((registration) => {
+        const activateWaitingWorker = () => {
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+        };
+
+        activateWaitingWorker();
+        registration.addEventListener("updatefound", () => {
+          const worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "installed" && navigator.serviceWorker.controller) {
+              activateWaitingWorker();
+            }
+          });
+        });
+        registration.update().catch((error) => {
+          console.error("Service worker update check failed", error);
+        });
+      })
+      .catch((error) => {
+        console.error("Service worker registration failed", error);
+      });
   });
 }
 

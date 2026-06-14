@@ -198,6 +198,7 @@ const staticFiles = new Set([
   "/sw.js",
   "/supabase.js",
   "/OneSignalSDKWorker.js",
+  "/OneSignalSDKUpdaterWorker.js",
   "/icon.svg",
   "/icons/apple-touch-icon.png",
   "/icons/icon-192.png",
@@ -2726,6 +2727,15 @@ async function handleRequest(request, response) {
 
   if (pathname === "/api/onesignal-config") {
     await sendApiPayload(response, async () => ({
+      appId: process.env.ONESIGNAL_APP_ID || "",
+      configured: Boolean(process.env.ONESIGNAL_APP_ID),
+    }));
+    return;
+  }
+
+  if (pathname === "/api/push-config") {
+    await sendApiPayload(response, async () => ({
+      oneSignalAppId: process.env.ONESIGNAL_APP_ID || "",
       appId: process.env.ONESIGNAL_APP_ID || "",
       configured: Boolean(process.env.ONESIGNAL_APP_ID),
     }));
