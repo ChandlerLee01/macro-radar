@@ -631,9 +631,11 @@ async function handleAccountAction(action) {
     const result = action === "signup"
       ? await window.MacroRadarAuth.signUp(email, password)
       : await window.MacroRadarAuth.signIn(email, password);
-    const user = result.user || (await window.MacroRadarAuth.getCurrentUser());
+    const user = action === "signup" && !result.session
+      ? null
+      : result.user || (await window.MacroRadarAuth.getCurrentUser());
     renderAccount(user);
-    setAccountMessage(action === "signup" ? "accountCreated" : "signedIn");
+    setAccountMessage(result.message || (action === "signup" ? "accountCreated" : "signedIn"), false, Boolean(result.message));
   } catch (error) {
     console.error(action === "signup" ? "Supabase sign up error:" : "Supabase sign in error:", error);
     setAccountMessage(getAuthErrorMessage(error), true, true);

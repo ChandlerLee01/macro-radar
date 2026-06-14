@@ -53,7 +53,15 @@
       const supabase = await initSupabase();
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-      return { user: data.user || null, session: data.session || null };
+      const user = data.user || null;
+      const session = data.session || null;
+      return {
+        user,
+        session,
+        message: user && !session
+          ? "Account created. Please check your email to confirm your account."
+          : "Account created",
+      };
     } catch (error) {
       console.error("Supabase sign up error:", error);
       lastError = error.message || "Authentication failed";
