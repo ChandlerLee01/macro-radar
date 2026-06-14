@@ -8,6 +8,7 @@ const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
 const LANGUAGE_KEY = "macro-radar:language";
 const WATCHLIST_KEY = "macro-radar:watchlist";
 const CUSTOM_ALERTS_KEY = "macro-radar:custom-alerts";
+const PREFERENCE_MERGE_PREFIX = "macro-radar:preferences-merged:";
 const DEFAULT_LANGUAGE = "en";
 const WATCHLIST_ASSETS = [
   { id: "SPX", name: "S&P 500", marketId: "spx" },
@@ -183,7 +184,11 @@ const translations = {
     waitingRiskSignals: "Waiting for risk signals",
     removeAsset: "Remove asset",
     saveAlert: "Save Alert",
+    save: "Save",
     searchAssets: "Search assets",
+    saveFailed: "Save failed. Please try again.",
+    savedSuccessfully: "Saved successfully",
+    unsavedChanges: "Unsaved changes",
     signedIn: "Signed in",
     signedOut: "Signed out",
     signIn: "Sign In",
@@ -343,7 +348,11 @@ const translations = {
     waitingRiskSignals: "等待风险信号",
     removeAsset: "移除资产",
     saveAlert: "保存提醒",
+    save: "保存",
     searchAssets: "搜索资产",
+    saveFailed: "保存失败，请重试。",
+    savedSuccessfully: "保存成功",
+    unsavedChanges: "未保存的更改",
     signedIn: "已登录",
     signedOut: "已退出",
     signIn: "登录",
@@ -360,6 +369,12 @@ let currentUser = null;
 let accountMessageKey = "";
 let accountMessageText = "";
 let accountMessageIsError = false;
+let preferencesLoadedForUserId = "";
+const preferenceDirty = {
+  watchlist: false,
+  customAlerts: false,
+  language: false,
+};
 
 async function configureNativeStatusBar() {
   const statusBar = window.Capacitor?.Plugins?.StatusBar;
@@ -445,6 +460,168 @@ function saveCustomAlerts() {
   }
 }
 
+function sanitizeWatchlist(ids = []) {
+  const supportedIds = new Set(WATCHLIST_ASSETS.map((asset) => asset.id));
+  return Array.isArray(ids)
+    ? ids.filter((id, index) => supportedIds.has(id) && ids.indexOf(id) === index)
+    : [];
+}
+
+function sanitizeCustomAlerts(alerts = []) {
+  const supportedIds = new Set(CUSTOM_ALERT_ASSETS.map((asset) => asset.id));
+  return Array.isArray(alerts)
+    ? alerts
+        .filter(
+          (alert) =>
+            alert &&
+            supportedIds.has(alert.assetId) &&
+            CUSTOM_ALERT_CONDITIONS.has(alert.condition) &&
+            Number.isFinite(Number(alert.target)),
+        )
+        .map((alert) => ({
+          id: alert.id || customAlertId(alert.assetId, alert.condition, alert.target),
+          assetId: alert.assetId,
+          condition: alert.condition,
+          target: Number(alert.target),
+          triggered: Boolean(alert.triggered),
+        }))
+    : [];
+}
+
+function currentPreferences() {
+  return {
+    watchlist: sanitizeWatchlist(watchlistAssetIds),
+    customAlerts: sanitizeCustomAlerts(customAlerts),
+    language: translations[currentLanguage] ? currentLanguage : DEFAULT_LANGUAGE,
+  };
+}
+
+function saveLocalPreferences(preferences = currentPreferences()) {
+  saveLanguage(preferences.language);
+  watchlistAssetIds = sanitizeWatchlist(preferences.watchlist);
+  customAlerts = sanitizeCustomAlerts(preferences.customAlerts);
+  saveWatchlist();
+  saveCustomAlerts();
+}
+
+function applyPreferences(preferences = {}) {
+  watchlistAssetIds = sanitizeWatchlist(preferences.watchlist);
+  customAlerts = sanitizeCustomAlerts(preferences.customAlerts);
+  if (translations[preferences.language]) {
+    currentLanguage = preferences.language;
+  }
+  applyLanguage();
+  renderWatchlist();
+  renderWatchlistOptions();
+  renderCustomAlerts();
+}
+
+function mergePreferenceData(remote = {}, local = currentPreferences()) {
+  const remoteWatchlist = sanitizeWatchlist(remote.watchlist);
+  const localWatchlist = sanitizeWatchlist(local.watchlist);
+  const remoteAlerts = sanitizeCustomAlerts(remote.custom_alerts || remote.customAlerts);
+  const localAlerts = sanitizeCustomAlerts(local.customAlerts);
+  const alertMap = new Map([...remoteAlerts, ...localAlerts].map((alert) => [alert.id, alert]));
+  return {
+    watchlist: [...new Set([...remoteWatchlist, ...localWatchlist])],
+    customAlerts: [...alertMap.values()],
+    language: translations[local.language] ? local.language : remote.language || DEFAULT_LANGUAGE,
+  };
+}
+
+function preferenceStatusElement(section) {
+  const ids = {
+    watchlist: "#watchlistSaveStatus",
+    customAlerts: "#customAlertsSaveStatus",
+    language: "#languageSaveStatus",
+  };
+  return document.querySelector(ids[section]);
+}
+
+function setPreferenceStatus(section, key, isError = false) {
+  const element = preferenceStatusElement(section);
+  if (!element) return;
+  element.textContent = key ? t(key) : "";
+  element.classList.toggle("error", isError);
+}
+
+function markPreferenceDirty(section) {
+  preferenceDirty[section] = true;
+  setPreferenceStatus(section, "unsavedChanges");
+}
+
+function markPreferenceSaved(section) {
+  preferenceDirty[section] = false;
+  setPreferenceStatus(section, "savedSuccessfully");
+}
+
+function clearPreferenceStatuses() {
+  Object.keys(preferenceDirty).forEach((section) => {
+    preferenceDirty[section] = false;
+    setPreferenceStatus(section, "");
+  });
+}
+
+function renderPreferenceStatuses() {
+  Object.entries(preferenceDirty).forEach(([section, isDirty]) => {
+    if (isDirty) {
+      setPreferenceStatus(section, "unsavedChanges");
+    }
+  });
+}
+
+async function savePreferenceSection(section) {
+  try {
+    const preferences = currentPreferences();
+    if (currentUser && window.MacroRadarAuth?.saveUserPreferences) {
+      await window.MacroRadarAuth.saveUserPreferences(preferences);
+    } else {
+      saveLocalPreferences(preferences);
+    }
+    markPreferenceSaved(section);
+  } catch (error) {
+    console.error("Preference save failed", error);
+    setPreferenceStatus(section, "saveFailed", true);
+  }
+}
+
+async function loadUserPreferences(user) {
+  if (!user || !window.MacroRadarAuth?.getUserPreferences) return;
+  if (preferencesLoadedForUserId === user.id) return;
+
+  try {
+    const localPreferences = {
+      watchlist: readStoredWatchlist(),
+      customAlerts: readStoredCustomAlerts(),
+      language: readStoredLanguage(),
+    };
+    const remotePreferences = await window.MacroRadarAuth.getUserPreferences();
+    const mergeKey = `${PREFERENCE_MERGE_PREFIX}${user.id}`;
+    const hasLocalSettings =
+      localPreferences.watchlist.length ||
+      localPreferences.customAlerts.length ||
+      localPreferences.language !== DEFAULT_LANGUAGE;
+    const hasMerged = localStorage.getItem(mergeKey) === "true";
+    const preferences = hasLocalSettings && !hasMerged
+      ? mergePreferenceData(remotePreferences || {}, localPreferences)
+      : {
+          watchlist: remotePreferences?.watchlist || [],
+          customAlerts: remotePreferences?.custom_alerts || [],
+          language: remotePreferences?.language || DEFAULT_LANGUAGE,
+        };
+
+    applyPreferences(preferences);
+    if (hasLocalSettings && !hasMerged) {
+      await window.MacroRadarAuth.saveUserPreferences(currentPreferences());
+      localStorage.setItem(mergeKey, "true");
+    }
+    preferencesLoadedForUserId = user.id;
+    clearPreferenceStatuses();
+  } catch (error) {
+    console.error("Preference load failed", error);
+  }
+}
+
 function watchlistAssetById(id) {
   return WATCHLIST_ASSETS.find((asset) => asset.id === id);
 }
@@ -472,7 +649,7 @@ function setWatchlistPicker(open) {
 function addWatchlistAsset(id) {
   if (watchlistAssetIds.includes(id) || !watchlistAssetById(id)) return;
   watchlistAssetIds = [...watchlistAssetIds, id];
-  saveWatchlist();
+  markPreferenceDirty("watchlist");
   renderWatchlist();
   renderWatchlistOptions();
   renderCustomAlerts();
@@ -480,7 +657,7 @@ function addWatchlistAsset(id) {
 
 function removeWatchlistAsset(id) {
   watchlistAssetIds = watchlistAssetIds.filter((assetId) => assetId !== id);
-  saveWatchlist();
+  markPreferenceDirty("watchlist");
   renderWatchlist();
   renderWatchlistOptions();
 }
@@ -545,6 +722,7 @@ function applyLanguage() {
   if (accountMessageText || accountMessageKey) {
     setAccountMessage(accountMessageText || accountMessageKey, accountMessageIsError, Boolean(accountMessageText));
   }
+  renderPreferenceStatuses();
   renderWatchlist();
   renderWatchlistOptions();
 }
@@ -617,8 +795,16 @@ async function initializeAccount() {
     setAccountLoading(true);
     const user = await window.MacroRadarAuth.getCurrentUser();
     renderAccount(user);
+    if (user) {
+      await loadUserPreferences(user);
+    }
     await window.MacroRadarAuth.onAuthStateChange((nextUser) => {
       renderAccount(nextUser);
+      if (nextUser) {
+        loadUserPreferences(nextUser);
+      } else {
+        preferencesLoadedForUserId = "";
+      }
     });
   } catch (error) {
     console.error("Account initialization failed", error);
@@ -643,6 +829,9 @@ async function handleAccountAction(action) {
       ? null
       : result.user || (await window.MacroRadarAuth.getCurrentUser());
     renderAccount(user);
+    if (user) {
+      await loadUserPreferences(user);
+    }
     setAccountMessage(result.message || (action === "signup" ? "accountCreated" : "signedIn"), false, Boolean(result.message));
   } catch (error) {
     console.error(action === "signup" ? "Supabase sign up error:" : "Supabase sign in error:", error);
@@ -669,7 +858,7 @@ async function handleSignOut() {
 function setLanguage(language) {
   if (!translations[language]) return;
   currentLanguage = language;
-  saveLanguage(currentLanguage);
+  markPreferenceDirty("language");
   applyLanguage();
 }
 
@@ -982,7 +1171,6 @@ function evaluateCustomAlerts() {
     changed = true;
     return { ...alert, triggered: true };
   });
-  if (changed) saveCustomAlerts();
 }
 
 function renderWatchlist() {
@@ -1090,7 +1278,7 @@ function addCustomAlert({ assetId, condition, target }) {
   }
 
   customAlerts = [...customAlerts, { id, assetId, condition, target: numericTarget, triggered: false }];
-  saveCustomAlerts();
+  markPreferenceDirty("customAlerts");
   renderCustomAlerts();
   return { ok: true };
 }
@@ -1885,6 +2073,10 @@ addSafeListener("#watchlistGrid", "click", (event) => {
   removeWatchlistAsset(removeButton.dataset.removeWatchlist);
 });
 
+addSafeListener("#watchlistSave", "click", () => {
+  savePreferenceSection("watchlist");
+});
+
 addSafeListener("#customAlertToggle", "click", () => {
   setCustomAlertModal(true);
 });
@@ -1928,8 +2120,12 @@ addSafeListener("#customAlertsGrid", "click", (event) => {
   if (!deleteButton) return;
 
   customAlerts = customAlerts.filter((alert) => alert.id !== deleteButton.dataset.deleteCustomAlert);
-  saveCustomAlerts();
+  markPreferenceDirty("customAlerts");
   renderCustomAlerts();
+});
+
+addSafeListener("#customAlertsSave", "click", () => {
+  savePreferenceSection("customAlerts");
 });
 
 addSafeListener("#languageMenuButton", "click", (event) => {
@@ -1944,6 +2140,11 @@ addSafeListener("#languageDropdown", "click", (event) => {
   setLanguage(option.dataset.languageChoice);
   closeLanguageDropdown();
   document.querySelector("#languageMenuButton")?.focus();
+});
+
+addSafeListener("#languageSave", "click", (event) => {
+  event.stopPropagation();
+  savePreferenceSection("language");
 });
 
 document.addEventListener("click", (event) => {

@@ -130,6 +130,43 @@
     }
   }
 
+  async function getUserPreferences() {
+    const supabase = await initSupabase();
+    const user = await getCurrentUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from("user_preferences")
+      .select("watchlist, custom_alerts, language, updated_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async function saveUserPreferences(preferences) {
+    const supabase = await initSupabase();
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Auth session missing!");
+
+    const { data, error } = await supabase
+      .from("user_preferences")
+      .upsert(
+        {
+          user_id: user.id,
+          watchlist: preferences.watchlist || [],
+          custom_alerts: preferences.customAlerts || [],
+          language: preferences.language || "en",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      )
+      .select("watchlist, custom_alerts, language, updated_at")
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   window.MacroRadarAuth = {
     initSupabase,
     signUp,
@@ -137,6 +174,8 @@
     signOut,
     getCurrentUser,
     onAuthStateChange,
+    getUserPreferences,
+    saveUserPreferences,
     getLastError: () => lastError,
   };
 })();

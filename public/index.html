@@ -63,6 +63,10 @@
                 <span class="language-check" aria-hidden="true"></span>
                 <span data-i18n="chineseName">中文</span>
               </button>
+              <div class="preference-save-row">
+                <span class="preference-status" id="languageSaveStatus"></span>
+                <button class="preference-save-button" id="languageSave" type="button" data-i18n="save">Save</button>
+              </div>
             </div>
           </div>
         </div>
@@ -169,9 +173,13 @@
             <p class="eyebrow" data-i18n="watchlistEyebrow">Watchlist</p>
             <h2 id="watchlistHeading" data-i18n="watchlistHeading">Favorite Assets</h2>
           </div>
-          <button class="secondary-button" id="watchlistToggle" type="button" data-i18n="addAsset" aria-expanded="false">
-            + Add Asset
-          </button>
+          <div class="section-actions">
+            <span class="preference-status" id="watchlistSaveStatus"></span>
+            <button class="secondary-button" id="watchlistSave" type="button" data-i18n="save">Save</button>
+            <button class="secondary-button" id="watchlistToggle" type="button" data-i18n="addAsset" aria-expanded="false">
+              + Add Asset
+            </button>
+          </div>
         </div>
         <div class="watchlist-picker" id="watchlistPicker" hidden>
           <label class="sr-only" for="watchlistSearch" data-i18n="searchAssets">Search assets</label>
@@ -229,9 +237,13 @@
             <p class="eyebrow" data-i18n="customAlertsEyebrow">Custom Alerts</p>
             <h2 id="customAlertsHeading" data-i18n="customAlertsHeading">Custom Alerts</h2>
           </div>
-          <button class="secondary-button" id="customAlertToggle" type="button" data-i18n="newAlert" aria-expanded="false">
-            + New Alert
-          </button>
+          <div class="section-actions">
+            <span class="preference-status" id="customAlertsSaveStatus"></span>
+            <button class="secondary-button" id="customAlertsSave" type="button" data-i18n="save">Save</button>
+            <button class="secondary-button" id="customAlertToggle" type="button" data-i18n="newAlert" aria-expanded="false">
+              + New Alert
+            </button>
+          </div>
         </div>
         <div class="custom-alerts-grid" id="customAlertsGrid">
           <article class="custom-alert-empty">
