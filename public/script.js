@@ -8,7 +8,9 @@ const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
 const LANGUAGE_KEY = "macro-radar:language";
 const WATCHLIST_KEY = "macro-radar:watchlist";
 const CUSTOM_ALERTS_KEY = "macro-radar:custom-alerts";
+const PUSH_ENABLED_KEY = "macro-radar:push-enabled";
 const PREFERENCE_MERGE_PREFIX = "macro-radar:preferences-merged:";
+const ONESIGNAL_SDK_URL = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
 const DEFAULT_LANGUAGE = "en";
 const WATCHLIST_ASSETS = [
   { id: "SPX", name: "S&P 500", marketId: "spx" },
@@ -85,6 +87,7 @@ const translations = {
     defensiveDemandText: "Gold remains bid while investors monitor inflation and geopolitical risk.",
     disclaimer: "For educational and research purposes only. Not financial advice.",
     email: "Email",
+    enablePushNotifications: "Enable Push Notifications",
     enterQuestion: "Enter a macro or market question first.",
     error: "Error",
     englishName: "English",
@@ -140,10 +143,15 @@ const translations = {
     scenarioOutlook: "Scenario Outlook",
     overallView: "Overall View",
     password: "Password",
+    permissionDenied: "Permission denied",
     promptDollar: "What does a stronger dollar mean for equities?",
     promptGold: "Is gold bullish over the next 3 months?",
     promptRegime: "What is today’s macro risk regime?",
     promptYields: "How should investors read rising Treasury yields?",
+    pushEnabled: "Push enabled",
+    pushNotifications: "Push Notifications",
+    pushNotificationsEnabled: "Push Notifications Enabled",
+    pushSetupFailed: "Push setup failed",
     questionLabel: "Macro or market question",
     questionPlaceholder: "Ask a macro or market question...",
     ratesAnchor: "Rates anchor",
@@ -251,6 +259,7 @@ const translations = {
     defensiveDemandText: "黄金保持支撑，投资者继续关注通胀与地缘风险。",
     disclaimer: "仅供教育和研究用途。不构成投资建议。",
     email: "邮箱",
+    enablePushNotifications: "启用推送通知",
     enterQuestion: "请先输入一个宏观或市场问题。",
     error: "错误",
     englishName: "English",
@@ -304,10 +313,15 @@ const translations = {
     scenarioOutlook: "情景展望",
     overallView: "总体观点",
     password: "密码",
+    permissionDenied: "权限被拒绝",
     promptDollar: "美元走强对股票意味着什么？",
     promptGold: "未来 3 个月黄金是否偏多？",
     promptRegime: "今天的宏观风险状态是什么？",
     promptYields: "投资者应如何解读美债收益率上升？",
+    pushEnabled: "推送已启用",
+    pushNotifications: "推送通知",
+    pushNotificationsEnabled: "推送通知已启用",
+    pushSetupFailed: "推送设置失败",
     questionLabel: "宏观或市场问题",
     questionPlaceholder: "输入一个宏观或市场问题...",
     ratesAnchor: "利率锚",
@@ -370,6 +384,8 @@ let accountMessageKey = "";
 let accountMessageText = "";
 let accountMessageIsError = false;
 let preferencesLoadedForUserId = "";
+let pushEnabled = readStoredPushEnabled();
+let oneSignalLoadPromise = null;
 const preferenceDirty = {
   watchlist: false,
   customAlerts: false,
@@ -460,6 +476,23 @@ function saveCustomAlerts() {
   }
 }
 
+function readStoredPushEnabled() {
+  try {
+    return localStorage.getItem(PUSH_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function savePushEnabled(value) {
+  pushEnabled = Boolean(value);
+  try {
+    localStorage.setItem(PUSH_ENABLED_KEY, pushEnabled ? "true" : "false");
+  } catch {
+    // Push preference is optional; the app should continue without storage.
+  }
+}
+
 function sanitizeWatchlist(ids = []) {
   const supportedIds = new Set(WATCHLIST_ASSETS.map((asset) => asset.id));
   return Array.isArray(ids)
@@ -493,6 +526,7 @@ function currentPreferences() {
     watchlist: sanitizeWatchlist(watchlistAssetIds),
     customAlerts: sanitizeCustomAlerts(customAlerts),
     language: translations[currentLanguage] ? currentLanguage : DEFAULT_LANGUAGE,
+    pushEnabled,
   };
 }
 
@@ -500,6 +534,7 @@ function saveLocalPreferences(preferences = currentPreferences()) {
   saveLanguage(preferences.language);
   watchlistAssetIds = sanitizeWatchlist(preferences.watchlist);
   customAlerts = sanitizeCustomAlerts(preferences.customAlerts);
+  savePushEnabled(preferences.pushEnabled);
   saveWatchlist();
   saveCustomAlerts();
 }
@@ -510,10 +545,12 @@ function applyPreferences(preferences = {}) {
   if (translations[preferences.language]) {
     currentLanguage = preferences.language;
   }
+  pushEnabled = Boolean(preferences.pushEnabled);
   applyLanguage();
   renderWatchlist();
   renderWatchlistOptions();
   renderCustomAlerts();
+  renderPushSettings();
 }
 
 function mergePreferenceData(remote = {}, local = currentPreferences()) {
@@ -526,6 +563,7 @@ function mergePreferenceData(remote = {}, local = currentPreferences()) {
     watchlist: [...new Set([...remoteWatchlist, ...localWatchlist])],
     customAlerts: [...alertMap.values()],
     language: translations[local.language] ? local.language : remote.language || DEFAULT_LANGUAGE,
+    pushEnabled: Boolean(remote.push_enabled || remote.pushEnabled || local.pushEnabled),
   };
 }
 
@@ -594,13 +632,15 @@ async function loadUserPreferences(user) {
       watchlist: readStoredWatchlist(),
       customAlerts: readStoredCustomAlerts(),
       language: readStoredLanguage(),
+      pushEnabled: readStoredPushEnabled(),
     };
     const remotePreferences = await window.MacroRadarAuth.getUserPreferences();
     const mergeKey = `${PREFERENCE_MERGE_PREFIX}${user.id}`;
     const hasLocalSettings =
       localPreferences.watchlist.length ||
       localPreferences.customAlerts.length ||
-      localPreferences.language !== DEFAULT_LANGUAGE;
+      localPreferences.language !== DEFAULT_LANGUAGE ||
+      localPreferences.pushEnabled;
     const hasMerged = localStorage.getItem(mergeKey) === "true";
     const preferences = hasLocalSettings && !hasMerged
       ? mergePreferenceData(remotePreferences || {}, localPreferences)
@@ -608,6 +648,7 @@ async function loadUserPreferences(user) {
           watchlist: remotePreferences?.watchlist || [],
           customAlerts: remotePreferences?.custom_alerts || [],
           language: remotePreferences?.language || DEFAULT_LANGUAGE,
+          pushEnabled: Boolean(remotePreferences?.push_enabled),
         };
 
     applyPreferences(preferences);
@@ -722,6 +763,7 @@ function applyLanguage() {
   if (accountMessageText || accountMessageKey) {
     setAccountMessage(accountMessageText || accountMessageKey, accountMessageIsError, Boolean(accountMessageText));
   }
+  renderPushSettings();
   renderPreferenceStatuses();
   renderWatchlist();
   renderWatchlistOptions();
@@ -767,6 +809,107 @@ function getAuthErrorMessage(error) {
   return error?.message || window.MacroRadarAuth?.getLastError?.() || t("authFailed");
 }
 
+function setPushMessage(key, isError = false) {
+  const message = document.querySelector("#pushMessage");
+  if (!message) return;
+  message.textContent = key ? t(key) : "";
+  message.classList.toggle("error", isError);
+}
+
+function renderPushSettings() {
+  const state = document.querySelector("#pushState");
+  const button = document.querySelector("#pushEnable");
+  if (!state || !button) return;
+
+  state.textContent = pushEnabled ? t("pushNotificationsEnabled") : t("enablePushNotifications");
+  button.textContent = pushEnabled ? t("pushNotificationsEnabled") : t("enablePushNotifications");
+  button.disabled = pushEnabled;
+}
+
+function loadOneSignalSdk() {
+  if (window.OneSignal) return Promise.resolve();
+  if (oneSignalLoadPromise) return oneSignalLoadPromise;
+
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  oneSignalLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = ONESIGNAL_SDK_URL;
+    script.defer = true;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("OneSignal SDK unavailable"));
+    document.head.appendChild(script);
+  });
+  return oneSignalLoadPromise;
+}
+
+async function loadOneSignalConfig() {
+  const response = await fetch("/api/onesignal-config", { cache: "no-store" });
+  const config = await response.json();
+  if (!response.ok) throw new Error(config.error || "OneSignal config unavailable");
+  if (!config.configured || !config.appId) throw new Error("OneSignal is not configured");
+  return config;
+}
+
+function runOneSignal(callback) {
+  return new Promise((resolve, reject) => {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async (OneSignal) => {
+      try {
+        resolve(await callback(OneSignal));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function persistPushEnabled(value) {
+  const preferences = { ...currentPreferences(), pushEnabled: Boolean(value) };
+  if (currentUser && window.MacroRadarAuth?.saveUserPreferences) {
+    await window.MacroRadarAuth.saveUserPreferences(preferences);
+  } else {
+    saveLocalPreferences(preferences);
+  }
+}
+
+async function enablePushNotifications() {
+  try {
+    const button = document.querySelector("#pushEnable");
+    if (button) button.disabled = true;
+    setPushMessage("");
+    const config = await loadOneSignalConfig();
+    await loadOneSignalSdk();
+    await runOneSignal(async (OneSignal) => {
+      await OneSignal.init({
+        appId: config.appId,
+        serviceWorkerPath: "OneSignalSDKWorker.js",
+        serviceWorkerParam: { scope: "/" },
+      });
+      await OneSignal.Notifications.requestPermission();
+      if (!OneSignal.Notifications.permission) {
+        throw new Error("Permission denied");
+      }
+      if (OneSignal.User?.PushSubscription?.optIn) {
+        await OneSignal.User.PushSubscription.optIn();
+      }
+    });
+
+    pushEnabled = true;
+    await persistPushEnabled(true);
+    renderPushSettings();
+    setPushMessage("pushEnabled");
+  } catch (error) {
+    console.error("Push setup failed", error);
+    const denied =
+      error.message === "Permission denied" ||
+      (typeof Notification !== "undefined" && Notification.permission === "denied");
+    pushEnabled = false;
+    renderPushSettings();
+    setPushMessage(denied ? "permissionDenied" : "pushSetupFailed", true);
+  }
+}
+
 function renderAccount(user = null) {
   currentUser = user;
   const form = document.querySelector("#accountForm");
@@ -781,6 +924,7 @@ function renderAccount(user = null) {
   }
 
   setAccountLoading(false);
+  renderPushSettings();
 }
 
 async function initializeAccount() {
@@ -2022,6 +2166,10 @@ addSafeListener("#accountSignOut", "click", () => {
     return;
   }
   handleSignOut();
+});
+
+addSafeListener("#pushEnable", "click", () => {
+  enablePushNotifications();
 });
 
 addSafeListener("#analystForm", "submit", (event) => {

@@ -6,6 +6,7 @@ const STATIC_ASSETS = [
   "/styles.css",
   "/script.js",
   "/supabase.js",
+  "/OneSignalSDKWorker.js",
   "/manifest.json",
   "/icon.svg",
   "/icons/apple-touch-icon.png",
