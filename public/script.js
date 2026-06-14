@@ -358,6 +358,7 @@ let customAlerts = readStoredCustomAlerts();
 let currentLanguage = readStoredLanguage();
 let currentUser = null;
 let accountMessageKey = "";
+let accountMessageText = "";
 let accountMessageIsError = false;
 
 async function configureNativeStatusBar() {
@@ -541,8 +542,8 @@ function applyLanguage() {
   }
 
   renderAccount(currentUser);
-  if (accountMessageKey) {
-    setAccountMessage(accountMessageKey, accountMessageIsError);
+  if (accountMessageText || accountMessageKey) {
+    setAccountMessage(accountMessageText || accountMessageKey, accountMessageIsError, Boolean(accountMessageText));
   }
   renderWatchlist();
   renderWatchlistOptions();
@@ -562,14 +563,19 @@ function setAccountLoading(isLoading) {
   }
 }
 
-function setAccountMessage(messageKey, isError = false) {
-  accountMessageKey = messageKey;
+function setAccountMessage(message, isError = false, isRawMessage = false) {
+  accountMessageKey = isRawMessage ? "" : message;
+  accountMessageText = isRawMessage ? message : "";
   accountMessageIsError = isError;
-  const message = document.querySelector("#accountMessage");
-  if (!message) return;
+  const messageElement = document.querySelector("#accountMessage");
+  if (!messageElement) return;
 
-  message.textContent = t(messageKey);
-  message.classList.toggle("error", isError);
+  messageElement.textContent = isRawMessage ? message : t(message);
+  messageElement.classList.toggle("error", isError);
+}
+
+function getAuthErrorMessage(error) {
+  return error?.message || window.MacroRadarAuth?.getLastError?.() || t("authFailed");
 }
 
 function renderAccount(user = null) {
@@ -600,14 +606,14 @@ async function initializeAccount() {
     const user = await window.MacroRadarAuth.getCurrentUser();
     renderAccount(user);
     if (!user && window.MacroRadarAuth.getLastError?.()) {
-      setAccountMessage("authFailed", true);
+      setAccountMessage(window.MacroRadarAuth.getLastError(), true, true);
     }
     await window.MacroRadarAuth.onAuthStateChange((nextUser) => {
       renderAccount(nextUser);
     });
   } catch (error) {
     console.error("Account initialization failed", error);
-    setAccountMessage("authFailed", true);
+    setAccountMessage(getAuthErrorMessage(error), true, true);
     renderAccount(null);
   }
 }
@@ -616,22 +622,21 @@ async function handleAccountAction(action) {
   const email = document.querySelector("#accountEmail")?.value.trim() || "";
   const password = document.querySelector("#accountPassword")?.value || "";
   if (!email || !password) {
-    setAccountMessage("authFailed", true);
+    setAccountMessage(t("authFailed"), true, true);
     return;
   }
 
   try {
     setAccountLoading(true);
-    const result =
-      action === "signup"
-        ? await window.MacroRadarAuth.signUp(email, password)
-        : await window.MacroRadarAuth.signIn(email, password);
+    const result = action === "signup"
+      ? await window.MacroRadarAuth.signUp(email, password)
+      : await window.MacroRadarAuth.signIn(email, password);
     const user = result.user || (await window.MacroRadarAuth.getCurrentUser());
     renderAccount(user);
     setAccountMessage(action === "signup" ? "accountCreated" : "signedIn");
   } catch (error) {
-    console.error("Authentication failed", error);
-    setAccountMessage("authFailed", true);
+    console.error(action === "signup" ? "Supabase sign up error:" : "Supabase sign in error:", error);
+    setAccountMessage(getAuthErrorMessage(error), true, true);
   } finally {
     setAccountLoading(false);
   }
@@ -645,7 +650,7 @@ async function handleSignOut() {
     setAccountMessage("signedOut");
   } catch (error) {
     console.error("Sign out failed", error);
-    setAccountMessage("authFailed", true);
+    setAccountMessage(getAuthErrorMessage(error), true, true);
   } finally {
     setAccountLoading(false);
   }

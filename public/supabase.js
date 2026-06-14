@@ -13,6 +13,9 @@
     if (!config.configured || !config.supabaseUrl || !config.supabaseAnonKey) {
       throw new Error("Supabase is not configured");
     }
+    console.log("Supabase URL:", config.supabaseUrl);
+    console.log("Supabase anon key exists:", Boolean(config.supabaseAnonKey));
+    console.log("Supabase anon key prefix:", config.supabaseAnonKey.slice(0, 8));
     return config;
   }
 
@@ -52,6 +55,7 @@
       if (error) throw error;
       return { user: data.user || null, session: data.session || null };
     } catch (error) {
+      console.error("Supabase sign up error:", error);
       lastError = error.message || "Authentication failed";
       throw error;
     }
@@ -64,6 +68,7 @@
       if (error) throw error;
       return { user: data.user || null, session: data.session || null };
     } catch (error) {
+      console.error("Supabase sign in error:", error);
       lastError = error.message || "Authentication failed";
       throw error;
     }
