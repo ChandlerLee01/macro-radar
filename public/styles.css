@@ -574,23 +574,6 @@ h2 {
   text-transform: uppercase;
 }
 
-.watchlist-panel {
-  margin: 0 0 16px;
-  border: 1px solid rgba(103, 167, 255, 0.34);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(103, 167, 255, 0.14), transparent 30%),
-    linear-gradient(135deg, rgba(97, 229, 172, 0.08), transparent 44%),
-    linear-gradient(180deg, rgba(20, 30, 44, 0.96), rgba(13, 19, 29, 0.96));
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
-  padding: 20px;
-}
-
-.watchlist-heading {
-  align-items: center;
-  margin-bottom: 14px;
-}
-
 .section-actions {
   display: flex;
   align-items: center;
@@ -621,183 +604,6 @@ h2 {
 .secondary-button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
-}
-
-.watchlist-picker {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.watchlist-picker[hidden] {
-  display: none;
-}
-
-.watchlist-picker input {
-  width: 100%;
-  border: 1px solid rgba(143, 160, 181, 0.22);
-  border-radius: 8px;
-  background: rgba(5, 10, 17, 0.72);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.9rem;
-  padding: 12px 13px;
-  outline: none;
-}
-
-.watchlist-picker input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(103, 167, 255, 0.14);
-}
-
-.watchlist-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.watchlist-options button {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(143, 160, 181, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  padding: 10px 11px;
-  text-align: left;
-}
-
-.watchlist-options button:hover,
-.watchlist-options button:focus {
-  border-color: rgba(103, 167, 255, 0.56);
-}
-
-.watchlist-options span {
-  color: var(--blue);
-  font-size: 0.75rem;
-  font-weight: 900;
-}
-
-.watchlist-options strong {
-  overflow: hidden;
-  font-size: 0.83rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.watchlist-options em {
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.watchlist-option-empty {
-  grid-column: 1 / -1;
-  border: 1px dashed rgba(143, 160, 181, 0.18);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 0.84rem;
-  font-weight: 800;
-  padding: 12px;
-}
-
-.watchlist-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.watchlist-card,
-.watchlist-empty {
-  min-width: 0;
-  border: 1px solid rgba(143, 160, 181, 0.17);
-  border-radius: 8px;
-  background: rgba(5, 10, 17, 0.34);
-  padding: 14px;
-}
-
-.watchlist-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
-}
-
-.watchlist-card span {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-
-.watchlist-card strong {
-  display: block;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 0.92rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.watchlist-quote {
-  text-align: right;
-}
-
-.watchlist-quote strong {
-  color: var(--text);
-  font-size: 1rem;
-}
-
-.watchlist-quote em {
-  display: block;
-  margin-top: 4px;
-  color: var(--green);
-  font-size: 0.82rem;
-  font-style: normal;
-  font-weight: 900;
-}
-
-.watchlist-card.down .watchlist-quote em {
-  color: var(--red);
-}
-
-.watchlist-card.unavailable .watchlist-quote em {
-  color: var(--muted);
-}
-
-.watchlist-card button {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border: 1px solid rgba(143, 160, 181, 0.18);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.watchlist-card button:hover,
-.watchlist-card button:focus {
-  border-color: rgba(255, 111, 125, 0.45);
-  color: var(--red);
-}
-
-.watchlist-empty {
-  grid-column: 1 / -1;
-  color: var(--muted);
-  min-height: 64px;
-  display: grid;
-  align-items: center;
 }
 
 .forecast-panel {
@@ -1975,8 +1781,6 @@ h2 {
 @media (max-width: 980px) {
   .metrics-grid,
   .forecast-grid,
-  .watchlist-grid,
-  .watchlist-options,
   .custom-alerts-grid,
   .daily-brief-grid,
   .summary-layout,
@@ -2078,7 +1882,6 @@ h2 {
   .account-panel,
   .analyst-panel,
   .forecast-panel,
-  .watchlist-panel,
   .custom-alerts-panel,
   .daily-brief-panel,
   .regime-panel,
@@ -2095,7 +1898,6 @@ h2 {
   .account-panel,
   .analyst-panel,
   .forecast-panel,
-  .watchlist-panel,
   .custom-alerts-panel,
   .daily-brief-panel,
   .metrics-grid,
@@ -2110,7 +1912,6 @@ h2 {
 
   .analyst-heading,
   .forecast-heading,
-  .watchlist-heading,
   .custom-alerts-heading,
   .daily-brief-heading,
   .regime-heading,
@@ -2213,8 +2014,6 @@ h2 {
   .forecast-grid,
   .forecast-scenarios,
   .forecast-lists,
-  .watchlist-grid,
-  .watchlist-options,
   .custom-alerts-grid,
   .daily-brief-grid,
   .summary-layout,
@@ -2302,7 +2101,6 @@ h2 {
   .account-panel,
   .analyst-panel,
   .forecast-panel,
-  .watchlist-panel,
   .custom-alerts-panel,
   .daily-brief-panel,
   .regime-panel,

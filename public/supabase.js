@@ -137,7 +137,7 @@
 
     const { data, error } = await supabase
       .from("user_preferences")
-      .select("watchlist, custom_alerts, language, push_enabled, updated_at")
+      .select("custom_alerts, language, push_enabled, updated_at")
       .eq("user_id", user.id)
       .maybeSingle();
     if (error) throw error;
@@ -154,7 +154,6 @@
       .upsert(
         {
           user_id: user.id,
-          watchlist: preferences.watchlist || [],
           custom_alerts: preferences.customAlerts || [],
           language: preferences.language || "en",
           push_enabled: Boolean(preferences.pushEnabled),
@@ -162,7 +161,7 @@
         },
         { onConflict: "user_id" },
       )
-      .select("watchlist, custom_alerts, language, push_enabled, updated_at")
+      .select("custom_alerts, language, push_enabled, updated_at")
       .single();
     if (error) throw error;
     return data;

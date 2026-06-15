@@ -6,13 +6,12 @@ const API_TIMEOUT_MS = 25_000;
 const API_CACHE_PREFIX = "macro-radar:api:";
 const ANALYST_CACHE_KEY = "macro-radar:analyst:last";
 const LANGUAGE_KEY = "macro-radar:language";
-const WATCHLIST_KEY = "macro-radar:watchlist";
 const CUSTOM_ALERTS_KEY = "macro-radar:custom-alerts";
 const PUSH_ENABLED_KEY = "macro-radar:push-enabled";
 const PREFERENCE_MERGE_PREFIX = "macro-radar:preferences-merged:";
 const ONESIGNAL_SDK_URL = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
 const DEFAULT_LANGUAGE = "en";
-const WATCHLIST_ASSETS = [
+const MACRO_ALERT_ASSETS = [
   { id: "SPX", name: "S&P 500", marketId: "spx" },
   { id: "NASDAQ", name: "NASDAQ", providerSymbol: "QQQ" },
   { id: "BTC", name: "Bitcoin", providerSymbol: "BTC-USD" },
@@ -25,7 +24,7 @@ const WATCHLIST_ASSETS = [
   { id: "WTI", name: "WTI Crude", providerSymbol: "CL=F" },
   { id: "US10Y", name: "US 10Y Treasury", marketId: "tenYear" },
 ];
-const CUSTOM_ALERT_ASSETS = WATCHLIST_ASSETS.filter((asset) =>
+const CUSTOM_ALERT_ASSETS = MACRO_ALERT_ASSETS.filter((asset) =>
   ["Gold", "SPX", "DXY", "US10Y", "BTC", "ETH", "Silver", "WTI", "EURUSD", "USDJPY"].includes(asset.id),
 );
 const CUSTOM_ALERT_CONDITIONS = new Set([">", "<", ">=", "<="]);
@@ -38,7 +37,6 @@ const translations = {
     authFailed: "Authentication failed",
     actionableInterpretation: "Actionable Interpretation",
     add: "Add",
-    addAsset: "+ Add Asset",
     alertsEyebrow: "Macro Alert Engine",
     alertsUnavailable: "Alerts unavailable",
     analysisAppears: "Analysis will appear here.",
@@ -176,10 +174,6 @@ const translations = {
     timelineUnavailable: "Timeline unavailable",
     unavailable: "Unavailable",
     updated: "Updated",
-    watchlist: "Watchlist",
-    watchlistEmpty: "No favorite assets yet.",
-    watchlistEyebrow: "Watchlist",
-    watchlistHeading: "Favorite Assets",
     watchingNext: "Watching Next",
     waitingAssetMoves: "Waiting for asset moves",
     waitingForHistory: "Waiting for history...",
@@ -190,10 +184,8 @@ const translations = {
     waitingMacroHeadlines: "Waiting for macro headlines",
     waitingMacroSignals: "Waiting for live macro signals.",
     waitingRiskSignals: "Waiting for risk signals",
-    removeAsset: "Remove asset",
     saveAlert: "Save Alert",
     save: "Save",
-    searchAssets: "Search assets",
     saveFailed: "Save failed. Please try again.",
     savedSuccessfully: "Saved successfully",
     unsavedChanges: "Unsaved changes",
@@ -210,7 +202,6 @@ const translations = {
     authFailed: "认证失败",
     actionableInterpretation: "可操作解读",
     add: "添加",
-    addAsset: "+ 添加资产",
     alertsEyebrow: "宏观预警引擎",
     alertsUnavailable: "预警不可用",
     analysisAppears: "分析结果将在这里显示。",
@@ -346,10 +337,6 @@ const translations = {
     timelineUnavailable: "时间线不可用",
     unavailable: "不可用",
     updated: "已更新",
-    watchlist: "观察列表",
-    watchlistEmpty: "还没有收藏资产。",
-    watchlistEyebrow: "观察列表",
-    watchlistHeading: "收藏资产",
     watchingNext: "继续关注",
     waitingAssetMoves: "等待资产走势",
     waitingForHistory: "等待历史数据...",
@@ -360,10 +347,8 @@ const translations = {
     waitingMacroHeadlines: "等待宏观新闻",
     waitingMacroSignals: "等待实时宏观信号。",
     waitingRiskSignals: "等待风险信号",
-    removeAsset: "移除资产",
     saveAlert: "保存提醒",
     save: "保存",
-    searchAssets: "搜索资产",
     saveFailed: "保存失败，请重试。",
     savedSuccessfully: "保存成功",
     unsavedChanges: "未保存的更改",
@@ -375,8 +360,7 @@ const translations = {
 };
 const chartPeriods = {};
 let latestMarkets = [];
-let latestWatchlistQuotes = {};
-let watchlistAssetIds = readStoredWatchlist();
+let latestAssetQuotes = {};
 let customAlerts = readStoredCustomAlerts();
 let currentLanguage = readStoredLanguage();
 let currentUser = null;
@@ -387,7 +371,6 @@ let preferencesLoadedForUserId = "";
 let pushEnabled = readStoredPushEnabled();
 let oneSignalLoadPromise = null;
 const preferenceDirty = {
-  watchlist: false,
   customAlerts: false,
   language: false,
 };
@@ -419,26 +402,6 @@ function saveLanguage(language) {
     localStorage.setItem(LANGUAGE_KEY, language);
   } catch {
     // Language choice is nice to have; the app should keep working without storage.
-  }
-}
-
-function readStoredWatchlist() {
-  try {
-    const supportedIds = new Set(WATCHLIST_ASSETS.map((asset) => asset.id));
-    const parsed = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]");
-    return Array.isArray(parsed)
-      ? parsed.filter((id, index) => supportedIds.has(id) && parsed.indexOf(id) === index)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveWatchlist() {
-  try {
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlistAssetIds));
-  } catch {
-    // Watchlist persistence is local-only; rendering should continue if storage fails.
   }
 }
 
@@ -493,13 +456,6 @@ function savePushEnabled(value) {
   }
 }
 
-function sanitizeWatchlist(ids = []) {
-  const supportedIds = new Set(WATCHLIST_ASSETS.map((asset) => asset.id));
-  return Array.isArray(ids)
-    ? ids.filter((id, index) => supportedIds.has(id) && ids.indexOf(id) === index)
-    : [];
-}
-
 function sanitizeCustomAlerts(alerts = []) {
   const supportedIds = new Set(CUSTOM_ALERT_ASSETS.map((asset) => asset.id));
   return Array.isArray(alerts)
@@ -523,7 +479,6 @@ function sanitizeCustomAlerts(alerts = []) {
 
 function currentPreferences() {
   return {
-    watchlist: sanitizeWatchlist(watchlistAssetIds),
     customAlerts: sanitizeCustomAlerts(customAlerts),
     language: translations[currentLanguage] ? currentLanguage : DEFAULT_LANGUAGE,
     pushEnabled,
@@ -532,35 +487,27 @@ function currentPreferences() {
 
 function saveLocalPreferences(preferences = currentPreferences()) {
   saveLanguage(preferences.language);
-  watchlistAssetIds = sanitizeWatchlist(preferences.watchlist);
   customAlerts = sanitizeCustomAlerts(preferences.customAlerts);
   savePushEnabled(preferences.pushEnabled);
-  saveWatchlist();
   saveCustomAlerts();
 }
 
 function applyPreferences(preferences = {}) {
-  watchlistAssetIds = sanitizeWatchlist(preferences.watchlist);
   customAlerts = sanitizeCustomAlerts(preferences.customAlerts);
   if (translations[preferences.language]) {
     currentLanguage = preferences.language;
   }
   pushEnabled = Boolean(preferences.pushEnabled);
   applyLanguage();
-  renderWatchlist();
-  renderWatchlistOptions();
   renderCustomAlerts();
   renderPushSettings();
 }
 
 function mergePreferenceData(remote = {}, local = currentPreferences()) {
-  const remoteWatchlist = sanitizeWatchlist(remote.watchlist);
-  const localWatchlist = sanitizeWatchlist(local.watchlist);
   const remoteAlerts = sanitizeCustomAlerts(remote.custom_alerts || remote.customAlerts);
   const localAlerts = sanitizeCustomAlerts(local.customAlerts);
   const alertMap = new Map([...remoteAlerts, ...localAlerts].map((alert) => [alert.id, alert]));
   return {
-    watchlist: [...new Set([...remoteWatchlist, ...localWatchlist])],
     customAlerts: [...alertMap.values()],
     language: translations[local.language] ? local.language : remote.language || DEFAULT_LANGUAGE,
     pushEnabled: Boolean(remote.push_enabled || remote.pushEnabled || local.pushEnabled),
@@ -569,7 +516,6 @@ function mergePreferenceData(remote = {}, local = currentPreferences()) {
 
 function preferenceStatusElement(section) {
   const ids = {
-    watchlist: "#watchlistSaveStatus",
     customAlerts: "#customAlertsSaveStatus",
     language: "#languageSaveStatus",
   };
@@ -629,7 +575,6 @@ async function loadUserPreferences(user) {
 
   try {
     const localPreferences = {
-      watchlist: readStoredWatchlist(),
       customAlerts: readStoredCustomAlerts(),
       language: readStoredLanguage(),
       pushEnabled: readStoredPushEnabled(),
@@ -637,7 +582,6 @@ async function loadUserPreferences(user) {
     const remotePreferences = await window.MacroRadarAuth.getUserPreferences();
     const mergeKey = `${PREFERENCE_MERGE_PREFIX}${user.id}`;
     const hasLocalSettings =
-      localPreferences.watchlist.length ||
       localPreferences.customAlerts.length ||
       localPreferences.language !== DEFAULT_LANGUAGE ||
       localPreferences.pushEnabled;
@@ -645,7 +589,6 @@ async function loadUserPreferences(user) {
     const preferences = hasLocalSettings && !hasMerged
       ? mergePreferenceData(remotePreferences || {}, localPreferences)
       : {
-          watchlist: remotePreferences?.watchlist || [],
           customAlerts: remotePreferences?.custom_alerts || [],
           language: remotePreferences?.language || DEFAULT_LANGUAGE,
           pushEnabled: Boolean(remotePreferences?.push_enabled),
@@ -663,44 +606,12 @@ async function loadUserPreferences(user) {
   }
 }
 
-function watchlistAssetById(id) {
-  return WATCHLIST_ASSETS.find((asset) => asset.id === id);
-}
-
 function customAlertAssetById(id) {
   return CUSTOM_ALERT_ASSETS.find((asset) => asset.id === id);
 }
 
 function customAlertId(assetId, condition, target) {
   return `${assetId}:${condition}:${Number(target)}`;
-}
-
-function setWatchlistPicker(open) {
-  const picker = document.querySelector("#watchlistPicker");
-  const toggle = document.querySelector("#watchlistToggle");
-  if (!picker || !toggle) return;
-
-  picker.hidden = !open;
-  toggle.setAttribute("aria-expanded", open ? "true" : "false");
-  if (open) {
-    document.querySelector("#watchlistSearch")?.focus();
-  }
-}
-
-function addWatchlistAsset(id) {
-  if (watchlistAssetIds.includes(id) || !watchlistAssetById(id)) return;
-  watchlistAssetIds = [...watchlistAssetIds, id];
-  markPreferenceDirty("watchlist");
-  renderWatchlist();
-  renderWatchlistOptions();
-  renderCustomAlerts();
-}
-
-function removeWatchlistAsset(id) {
-  watchlistAssetIds = watchlistAssetIds.filter((assetId) => assetId !== id);
-  markPreferenceDirty("watchlist");
-  renderWatchlist();
-  renderWatchlistOptions();
 }
 
 function t(key) {
@@ -765,8 +676,6 @@ function applyLanguage() {
   }
   renderPushSettings();
   renderPreferenceStatuses();
-  renderWatchlist();
-  renderWatchlistOptions();
 }
 
 function setAccountLoading(isLoading) {
@@ -1312,7 +1221,7 @@ function renderMetrics(marketData) {
     .join("");
 }
 
-function watchlistQuote(asset) {
+function macroAssetQuote(asset) {
   const market = asset.marketId ? findMarket(latestMarkets, asset.marketId) : null;
   if (market) {
     return {
@@ -1323,7 +1232,7 @@ function watchlistQuote(asset) {
     };
   }
 
-  const quote = latestWatchlistQuotes[asset.id];
+  const quote = latestAssetQuotes[asset.id];
   if (quote && !quote.unavailable) {
     return {
       value: quote.value,
@@ -1349,7 +1258,7 @@ function numericQuoteValue(value) {
 function customAlertQuote(assetId) {
   const asset = customAlertAssetById(assetId);
   if (!asset) return null;
-  const quote = watchlistQuote(asset);
+  const quote = macroAssetQuote(asset);
   const numericValue = numericQuoteValue(quote.value);
   if (!Number.isFinite(numericValue)) return null;
   return { ...quote, numericValue };
@@ -1373,41 +1282,6 @@ function evaluateCustomAlerts() {
     changed = true;
     return { ...alert, triggered: true };
   });
-}
-
-function renderWatchlist() {
-  const grid = document.querySelector("#watchlistGrid");
-  if (!grid) return;
-
-  if (!watchlistAssetIds.length) {
-    grid.innerHTML = `
-      <article class="watchlist-empty">
-        <strong>${t("watchlistEmpty")}</strong>
-      </article>
-    `;
-    return;
-  }
-
-  grid.innerHTML = watchlistAssetIds
-    .map((id) => {
-      const asset = watchlistAssetById(id);
-      if (!asset) return "";
-      const quote = watchlistQuote(asset);
-      return `
-        <article class="watchlist-card ${quote.down ? "down" : ""} ${quote.unavailable ? "unavailable" : ""}">
-          <div>
-            <span>${escapeHtml(asset.id)}</span>
-            <strong>${escapeHtml(asset.name)}</strong>
-          </div>
-          <div class="watchlist-quote">
-            <strong>${escapeHtml(quote.value)}</strong>
-            <em>${escapeHtml(quote.change)}</em>
-          </div>
-          <button type="button" data-remove-watchlist="${escapeHtml(asset.id)}" aria-label="${t("removeAsset")} ${escapeHtml(asset.name)}">×</button>
-        </article>
-      `;
-    })
-    .join("");
 }
 
 function renderCustomAlerts() {
@@ -1483,33 +1357,6 @@ function addCustomAlert({ assetId, condition, target }) {
   markPreferenceDirty("customAlerts");
   renderCustomAlerts();
   return { ok: true };
-}
-
-function renderWatchlistOptions() {
-  const options = document.querySelector("#watchlistOptions");
-  const search = document.querySelector("#watchlistSearch");
-  if (!options) return;
-
-  const query = (search?.value || "").trim().toLowerCase();
-  const assets = WATCHLIST_ASSETS.filter((asset) => {
-    const isSelected = watchlistAssetIds.includes(asset.id);
-    const matches = `${asset.id} ${asset.name}`.toLowerCase().includes(query);
-    return !isSelected && matches;
-  });
-
-  options.innerHTML = assets.length
-    ? assets
-        .map(
-          (asset) => `
-            <button type="button" role="option" data-add-watchlist="${escapeHtml(asset.id)}">
-              <span>${escapeHtml(asset.id)}</span>
-              <strong>${escapeHtml(asset.name)}</strong>
-              <em>${t("add")}</em>
-            </button>
-          `,
-        )
-        .join("")
-    : `<div class="watchlist-option-empty">${t("watchlistEmpty")}</div>`;
 }
 
 function renderSummary(summary, summaryPoints, provider) {
@@ -1891,8 +1738,6 @@ function renderAlerts(payload) {
 
 function renderLoading() {
   renderForecastLoading();
-  renderWatchlist();
-  renderWatchlistOptions();
   renderCustomAlerts();
 
   document.querySelector("#metricsGrid").innerHTML = Array.from({ length: 4 })
@@ -2045,10 +1890,9 @@ function setStatus(text, state = "loading") {
 async function refreshMarkets() {
   try {
     const { payload, fromCache } = await fetchJsonWithSnapshot("/api/markets", "markets");
-    latestWatchlistQuotes = payload.watchlistQuotes || {};
+    latestAssetQuotes = payload.assetQuotes || {};
     renderMetrics(payload.markets);
     renderCharts(payload.markets);
-    renderWatchlist();
     renderCustomAlerts();
     renderRegime(payload.regime);
     renderSummary(payload.summary, payload.summaryPoints, payload.summaryProvider);
@@ -2250,37 +2094,6 @@ document.addEventListener("click", (event) => {
 
   analystQuestion.value = button.dataset.examplePrompt;
   analystQuestion.focus();
-});
-
-addSafeListener("#watchlistToggle", "click", () => {
-  const picker = document.querySelector("#watchlistPicker");
-  setWatchlistPicker(Boolean(picker?.hidden));
-  renderWatchlistOptions();
-});
-
-addSafeListener("#watchlistSearch", "input", renderWatchlistOptions);
-
-addSafeListener("#watchlistOptions", "click", (event) => {
-  const option = event.target.closest("[data-add-watchlist]");
-  if (!option) return;
-
-  addWatchlistAsset(option.dataset.addWatchlist);
-  const search = document.querySelector("#watchlistSearch");
-  if (search) {
-    search.value = "";
-  }
-  setWatchlistPicker(false);
-});
-
-addSafeListener("#watchlistGrid", "click", (event) => {
-  const removeButton = event.target.closest("[data-remove-watchlist]");
-  if (!removeButton) return;
-
-  removeWatchlistAsset(removeButton.dataset.removeWatchlist);
-});
-
-addSafeListener("#watchlistSave", "click", () => {
-  savePreferenceSection("watchlist");
 });
 
 addSafeListener("#customAlertToggle", "click", () => {

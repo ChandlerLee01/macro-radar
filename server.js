@@ -32,7 +32,7 @@ const YAHOO_SYMBOLS = {
   dxy: "DX-Y.NYB",
   tenYear: "^TNX",
 };
-const WATCHLIST_YAHOO_SYMBOLS = {
+const MACRO_ASSET_YAHOO_SYMBOLS = {
   SPX: { symbol: "^GSPC", label: "S&P 500", formatter: "index" },
   NASDAQ: { symbol: "QQQ", label: "NASDAQ", formatter: "currency" },
   BTC: { symbol: "BTC-USD", label: "Bitcoin", formatter: "currency" },
@@ -432,7 +432,7 @@ function formatBps(value) {
   return `${value >= 0 ? "+" : ""}${Math.round(value)} bps`;
 }
 
-function formatWatchlistValue(value, formatter) {
+function formatMacroAssetValue(value, formatter) {
   if (!Number.isFinite(value)) return "N/A";
   if (formatter === "yield") return `${(value / 10).toFixed(2)}%`;
   if (formatter === "fx4") return value.toFixed(4);
@@ -1132,7 +1132,7 @@ function forecastQuote(marketsPayload, assetId) {
     }
   }
 
-  const quote = marketsPayload.watchlistQuotes?.[assetId];
+  const quote = marketsPayload.assetQuotes?.[assetId];
   if (quote && !quote.unavailable) {
     return {
       asset: assetId,
@@ -1694,13 +1694,13 @@ async function fetchYahooAsset(symbol, label) {
   return parseYahooResult(payload, symbol, label);
 }
 
-async function fetchYahooWatchlistQuote(id, config) {
+async function fetchYahooMacroAssetQuote(id, config) {
   const parsed = await fetchYahooAsset(config.symbol, config.label);
   const open = num(parsed.row.Open);
   const close = num(parsed.row.Close);
   const change = pctChange(close, open);
   if (!Number.isFinite(close) || !Number.isFinite(change)) {
-    throw new Error(`Yahoo ${config.symbol} returned invalid watchlist quote`);
+    throw new Error(`Yahoo ${config.symbol} returned invalid macro asset quote`);
   }
 
   return {
@@ -1708,7 +1708,7 @@ async function fetchYahooWatchlistQuote(id, config) {
     name: config.label,
     symbol: config.symbol,
     provider: "Yahoo Finance",
-    value: formatWatchlistValue(close, config.formatter),
+    value: formatMacroAssetValue(close, config.formatter),
     change: formatPct(change),
     rawChange: change,
     down: change < 0,
@@ -1716,13 +1716,13 @@ async function fetchYahooWatchlistQuote(id, config) {
   };
 }
 
-async function fetchYahooWatchlistQuotes() {
+async function fetchYahooMacroAssetQuotes() {
   const entries = await Promise.all(
-    Object.entries(WATCHLIST_YAHOO_SYMBOLS).map(async ([id, config]) => {
+    Object.entries(MACRO_ASSET_YAHOO_SYMBOLS).map(async ([id, config]) => {
       try {
-        return [id, await fetchYahooWatchlistQuote(id, config)];
+        return [id, await fetchYahooMacroAssetQuote(id, config)];
       } catch (error) {
-        console.error(`Yahoo watchlist ${id} unavailable: ${error.message}`);
+        console.error(`Yahoo macro asset ${id} unavailable: ${error.message}`);
         return [
           id,
           {
@@ -1951,11 +1951,11 @@ async function buildMarketPayload({ quotes, treasury, history, providerStatus })
   const aiSummary = providerStatus.marketData === "fallback"
     ? { ...buildSummary(built.markets), summaryProvider: "local-fallback" }
     : await generateAiSummary(built.markets);
-  let watchlistQuotes = {};
+  let assetQuotes = {};
   try {
-    watchlistQuotes = await fetchYahooWatchlistQuotes();
+    assetQuotes = await fetchYahooMacroAssetQuotes();
   } catch (error) {
-    console.error(`Yahoo watchlist provider unavailable: ${error.message}`);
+    console.error(`Yahoo macro asset provider unavailable: ${error.message}`);
   }
 
   return {
@@ -1964,7 +1964,7 @@ async function buildMarketPayload({ quotes, treasury, history, providerStatus })
     regime: built.regime,
     ...aiSummary,
     aiDailyBrief: buildAiDailyBrief(built.markets, built.regime, aiSummary),
-    watchlistQuotes,
+    assetQuotes,
     sources: providerStatus.sources,
     degraded: providerStatus.marketData === "fallback",
     providerStatus,
